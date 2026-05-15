@@ -1,4 +1,15 @@
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
   postgres:
     image: postgres:16
     container_name: uran-postgres
@@ -20,11 +31,24 @@ services:
   api:
     build:
       context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET_KEY=super-secret-key-change-in-production
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - JWT_REFRESH_TOKEN_EXPIRE_MINUTES=10080
+    depends_on:
+      redis:
+        condition: service_healthy
     container_name: uran-api
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
@@ -36,3 +60,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

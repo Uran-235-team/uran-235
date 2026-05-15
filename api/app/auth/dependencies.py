@@ -2,19 +2,22 @@ import jwt
 import redis.asyncio as aioredis
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
-from app.auth.mock_users import get_user
+from db.session import get_session
+from db.models.user import User
 from app.auth.service import is_token_valid
 from app.config import settings
 from app.redis_client import get_redis
 
 security = HTTPBearer()
 
-
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     redis_client: aioredis.Redis = Depends(get_redis),
-) -> dict:
+    session: AsyncSession = Depends(get_session)
+) -> User:
     """FastAPI dependency: extract and validate the current user from Bearer token."""
     token = credentials.credentials
 
@@ -53,7 +56,10 @@ async def get_current_user(
             detail="Token has been revoked",
         )
 
-    user = get_user(username)
+    # Get user from database
+    result = await session.execute(select(User).where(User.username == username))
+    user = result.scalars().first()
+    
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

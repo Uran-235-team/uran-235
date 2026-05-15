@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from app.auth.router import router as auth_router
 from app.rates.hub import rates_hub
 from app.rates.router import router as rates_router
+from app.rules.router import router as rules_router
 from app.redis_client import redis_client
 from db.session import engine
 
@@ -29,6 +30,7 @@ app = FastAPI(
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(rates_router, prefix="/api/v1")
+app.include_router(rules_router, prefix="/api/v1")
 
 
 @app.get("/health")

@@ -1,6 +1,7 @@
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -25,7 +26,7 @@ class Rule(Base):
     )
     title: Mapped[str] = mapped_column(String(64), nullable=False)
     extra: Mapped[int] = mapped_column(Integer, nullable=False)
-    low: Mapped[int] = mapped_column(Integer, nullable=False)
-    high: Mapped[int] = mapped_column(Integer, nullable=False)
+    low: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
+    high: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="rules")

@@ -1,9 +1,0 @@
-version: '3.8'
-
-services:
-  currency-emulator:
-    build: .
-    container_name: currency_emulator_service
-    ports:
-      - "8001:8000"
-    restart: always

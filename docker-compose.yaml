@@ -39,6 +39,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      emulator:
+        condition: service_started
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
@@ -50,8 +52,18 @@ services:
       JWT_SECRET_KEY: super-secret-key-change-in-production
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 30
       JWT_REFRESH_TOKEN_EXPIRE_MINUTES: 10080
+      EMULATOR_WS_URL: ws://emulator:8000/ws/rates
     ports:
       - "8000:8000"
+
+  emulator:
+    build:
+      context: ./emulator
+      dockerfile: Dockerfile
+    container_name: uran-emulator
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
 
 volumes:
   postgres_data:

@@ -2,9 +2,12 @@ import jwt
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user
-from app.auth.mock_users import create_user, get_user, verify_password
+from app.dependencies import get_current_user, get_redis, get_session
+from app.auth.password import verify_password
+from app.auth.repository import create_user, get_user_by_username
 from app.auth.schemas import (
     MessageResponse,
     TokenRefresh,
@@ -22,7 +25,7 @@ from app.auth.service import (
     store_token,
 )
 from app.config import settings
-from app.redis_client import get_redis
+from db.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 security = HTTPBearer()
@@ -31,21 +34,22 @@ security = HTTPBearer()
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     user_data: UserRegister,
+    session: AsyncSession = Depends(get_session),
     redis_client: aioredis.Redis = Depends(get_redis),
 ):
-    """Register a new user and return JWT token pair."""
-    if get_user(user_data.username):
+    if await get_user_by_username(session, user_data.username):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Username already exists",
         )
 
-    create_user(
-        username=user_data.username,
-        email=user_data.email,
-        full_name=user_data.full_name,
-        password=user_data.password,
-    )
+    try:
+        await create_user(session, user_data.username, user_data.password)
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username already exists",
+        )
 
     token_data = {"sub": user_data.username}
     access_token = create_access_token(token_data)
@@ -66,11 +70,11 @@ async def register(
 @router.post("/login", response_model=TokenResponse)
 async def login(
     user_data: UserLogin,
+    session: AsyncSession = Depends(get_session),
     redis_client: aioredis.Redis = Depends(get_redis),
 ):
-    """Authenticate user and return JWT token pair."""
-    user = get_user(user_data.username)
-    if not user or not verify_password(user_data.password, user["hashed_password"]):
+    user = await get_user_by_username(session, user_data.username)
+    if not user or not verify_password(user_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
@@ -97,7 +101,6 @@ async def refresh_tokens(
     token_data: TokenRefresh,
     redis_client: aioredis.Redis = Depends(get_redis),
 ):
-    """Refresh token pair using a valid refresh token."""
     try:
         payload = decode_token(token_data.refresh_token)
     except jwt.ExpiredSignatureError:
@@ -130,7 +133,6 @@ async def refresh_tokens(
             detail="Refresh token has been revoked",
         )
 
-    # Revoke all old tokens and issue new pair
     await revoke_all_user_tokens(redis_client, username)
 
     new_token_data = {"sub": username}
@@ -154,7 +156,6 @@ async def logout(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     redis_client: aioredis.Redis = Depends(get_redis),
 ):
-    """Logout user by revoking all their tokens."""
     token = credentials.credentials
     try:
         payload = decode_token(token)
@@ -172,11 +173,5 @@ async def logout(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(current_user: dict = Depends(get_current_user)):
-    """Get current authenticated user info."""
-    return UserResponse(
-        username=current_user["username"],
-        email=current_user["email"],
-        full_name=current_user["full_name"],
-        is_active=current_user["is_active"],
-    )
+async def get_me(current_user: User = Depends(get_current_user)):
+    return UserResponse(username=current_user.username)

@@ -64,6 +64,7 @@ async def get_priced_rates(
         exchange_id=exchange_id,
         latest_rates=hub.latest_rates,
         assignments=assignments,
+        as_of=hub.pricing_as_of(),
     )
     return PricedRatesResponse(exchange_id=exchange_id, rates=rates)
 
@@ -177,7 +178,7 @@ async def rates_ws(websocket: WebSocket):
     )
 
     if hub.latest_rates:
-        await websocket.send_json(hub.latest_rates)
+        await websocket.send_json(hub.client_payload())
 
     await hub.subscribe(websocket)
 

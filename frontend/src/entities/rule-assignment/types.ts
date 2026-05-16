@@ -3,14 +3,20 @@ export type RuleAssignment = {
   exchangeId: string | null
   currency: string | null
   ruleSetId: number
+  validFrom: string
+  validTo: string
 }
 
 export type RuleAssignmentInput = {
   exchangeId: string | null
   currency: string | null
   ruleSetId: number
+  validFrom: string
+  validTo: string
 }
 
 export type RuleAssignmentUpdate = {
-  ruleSetId: number
+  ruleSetId?: number
+  validFrom?: string
+  validTo?: string
 }

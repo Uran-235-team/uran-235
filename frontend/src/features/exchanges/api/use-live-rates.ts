@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useRef } from 'react'
 
-import type { LiveRates } from '@/entities/exchange/types'
+import type { LiveRates, LiveRatesMessage } from '@/entities/exchange/types'
 import { useCurrencySuggestionsStore } from '@/features/exchanges/model/currency-suggestions-store'
 import { useAuthStore } from '@/features/auth/model/auth-store'
 import { normalizeApiError, refreshSessionTokens } from '@/services/api/client'
@@ -13,6 +13,7 @@ const RECONNECT_MAX_DELAY_MS = 5_000
 
 type LiveRatesState = {
   rates: LiveRates
+  observedAt: string | null
   status: Status
   lastMessageAt: number | null
   messageCount: number
@@ -22,12 +23,13 @@ type LiveRatesAction =
   | { type: 'reset' }
   | { type: 'connecting' }
   | { type: 'auth'; ok: boolean }
-  | { type: 'data'; rates: LiveRates; at: number }
+  | { type: 'data'; rates: LiveRates; observedAt: string | null; at: number }
   | { type: 'error' }
   | { type: 'closed' }
 
 const idleState: LiveRatesState = {
   rates: {},
+  observedAt: null,
   status: 'idle',
   lastMessageAt: null,
   messageCount: 0,
@@ -40,6 +42,7 @@ function reducer(state: LiveRatesState, action: LiveRatesAction): LiveRatesState
     case 'connecting':
       return {
         rates: {},
+        observedAt: null,
         status: 'connecting',
         lastMessageAt: null,
         messageCount: 0,
@@ -52,6 +55,7 @@ function reducer(state: LiveRatesState, action: LiveRatesAction): LiveRatesState
     case 'data':
       return {
         rates: action.rates,
+        observedAt: action.observedAt,
         status: state.status === 'error' ? 'error' : state.status,
         lastMessageAt: action.at,
         messageCount: state.messageCount + 1,
@@ -77,6 +81,33 @@ function buildWsUrl(exchangeId: string) {
   url.pathname = '/api/v1/ws/rates'
   url.search = `?exchange_id=${encodeURIComponent(exchangeId)}`
   return url.toString()
+}
+
+function parseRatesPayload(payload: unknown): LiveRatesMessage | null {
+  if (!payload || typeof payload !== 'object') return null
+  const record = payload as Record<string, unknown>
+  if (record.type === 'auth') return null
+
+  if (record.rates && typeof record.rates === 'object') {
+    const rates: LiveRates = {}
+    for (const [currency, value] of Object.entries(record.rates as Record<string, unknown>)) {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        rates[currency] = value
+      }
+    }
+    return {
+      rates,
+      observedAt: typeof record.observed_at === 'string' ? record.observed_at : null,
+    }
+  }
+
+  const rates: LiveRates = {}
+  for (const [currency, value] of Object.entries(record)) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      rates[currency] = value
+    }
+  }
+  return { rates, observedAt: null }
 }
 
 export function useLiveRates(exchangeId: string | null | undefined) {
@@ -217,10 +248,15 @@ export function useLiveRates(exchangeId: string | null | undefined) {
             return
           }
 
-          if (payload && typeof payload === 'object') {
-            const nextRates = payload as LiveRates
-            rememberFromRates(nextRates)
-            dispatch({ type: 'data', rates: nextRates, at: Date.now() })
+          const parsed = parseRatesPayload(payload)
+          if (parsed) {
+            rememberFromRates(parsed.rates)
+            dispatch({
+              type: 'data',
+              rates: parsed.rates,
+              observedAt: parsed.observedAt,
+              at: Date.now(),
+            })
           }
         } catch {
           // Ignore malformed frame.

@@ -1,5 +1,6 @@
 import random
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 TICK_RATE = 0.2
@@ -49,8 +50,11 @@ class ExchangeEmulator:
             change = self._rng.uniform(-MAX_CHANGE_PCT, MAX_CHANGE_PCT)
             self.rates[currency] = round(self.rates[currency] * (1 + change), 4)
 
-    def snapshot(self) -> dict[str, float]:
-        return dict(self.rates)
+    def snapshot(self) -> dict:
+        return {
+            "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "rates": dict(self.rates),
+        }
 
 
 _ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")

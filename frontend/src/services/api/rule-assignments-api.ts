@@ -10,6 +10,8 @@ type RuleAssignmentDto = {
   exchange_id: string | null
   currency: string | null
   rule_set_id: number
+  valid_from: string
+  valid_to: string
 }
 
 function mapAssignment(dto: RuleAssignmentDto): RuleAssignment {
@@ -18,6 +20,8 @@ function mapAssignment(dto: RuleAssignmentDto): RuleAssignment {
     exchangeId: dto.exchange_id,
     currency: dto.currency,
     ruleSetId: dto.rule_set_id,
+    validFrom: dto.valid_from,
+    validTo: dto.valid_to,
   }
 }
 
@@ -27,11 +31,15 @@ function toDto(payload: RuleAssignmentInput | RuleAssignmentUpdate) {
       exchange_id: payload.exchangeId,
       currency: payload.currency,
       rule_set_id: payload.ruleSetId,
+      valid_from: payload.validFrom,
+      valid_to: payload.validTo,
     }
   }
 
   return {
-    rule_set_id: payload.ruleSetId,
+    ...(payload.ruleSetId != null ? { rule_set_id: payload.ruleSetId } : {}),
+    ...(payload.validFrom != null ? { valid_from: payload.validFrom } : {}),
+    ...(payload.validTo != null ? { valid_to: payload.validTo } : {}),
   }
 }
 

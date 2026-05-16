@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Index, String
+from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -21,33 +21,21 @@ class RuleAssignment(Base):
             "currency IS NULL OR length(currency) BETWEEN 1 AND 16",
             name="ck_rule_assignments_currency_len",
         ),
-        Index(
-            "uq_rule_assignments_user_exchange_currency",
-            "user_id",
-            "exchange_id",
-            "currency",
-            unique=True,
-            postgresql_where="exchange_id IS NOT NULL AND currency IS NOT NULL",
+        CheckConstraint(
+            "valid_from_month BETWEEN 1 AND 12",
+            name="ck_rule_assignments_valid_from_month",
         ),
-        Index(
-            "uq_rule_assignments_user_exchange_any_currency",
-            "user_id",
-            "exchange_id",
-            unique=True,
-            postgresql_where="exchange_id IS NOT NULL AND currency IS NULL",
+        CheckConstraint(
+            "valid_to_month BETWEEN 1 AND 12",
+            name="ck_rule_assignments_valid_to_month",
         ),
-        Index(
-            "uq_rule_assignments_user_any_exchange_currency",
-            "user_id",
-            "currency",
-            unique=True,
-            postgresql_where="exchange_id IS NULL AND currency IS NOT NULL",
+        CheckConstraint(
+            "valid_from_day BETWEEN 1 AND 31",
+            name="ck_rule_assignments_valid_from_day",
         ),
-        Index(
-            "uq_rule_assignments_user_default",
-            "user_id",
-            unique=True,
-            postgresql_where="exchange_id IS NULL AND currency IS NULL",
+        CheckConstraint(
+            "valid_to_day BETWEEN 1 AND 31",
+            name="ck_rule_assignments_valid_to_day",
         ),
     )
 
@@ -63,6 +51,10 @@ class RuleAssignment(Base):
         nullable=False,
         index=True,
     )
+    valid_from_day: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    valid_from_month: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    valid_to_day: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    valid_to_month: Mapped[int] = mapped_column(SmallInteger, nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="rule_assignments")
     rule_set: Mapped["RuleSet"] = relationship(back_populates="assignments")

@@ -24,6 +24,7 @@ import type { RuleAssignment } from '@/entities/rule-assignment/types'
 import type { RuleSet } from '@/entities/rule-set/types'
 
 const ANY_EXCHANGE = '__any_exchange__'
+const DD_MM_RE = /^(\d{1,2})\.(\d{1,2})$/
 
 function describeScope(assignment: RuleAssignment | null) {
   if (!assignment) return null
@@ -31,6 +32,16 @@ function describeScope(assignment: RuleAssignment | null) {
   const exchange = assignment.exchangeId ?? 'Любая биржа'
   const currency = assignment.currency ?? 'Любая валюта'
   return `${exchange} / ${currency}`
+}
+
+function isValidDdMm(value: string) {
+  const match = value.trim().match(DD_MM_RE)
+  if (!match) return false
+  const day = Number(match[1])
+  const month = Number(match[2])
+  if (month < 1 || month > 12) return false
+  const daysInMonth = new Date(2000, month, 0).getDate()
+  return day >= 1 && day <= daysInMonth
 }
 
 function AssignmentDialogFields({
@@ -54,6 +65,8 @@ function AssignmentDialogFields({
     exchangeId: string | null
     currency: string | null
     ruleSetId: number
+    validFrom: string
+    validTo: string
   }) => void
 }) {
   const isEditing = initialAssignment != null
@@ -64,6 +77,10 @@ function AssignmentDialogFields({
   const [ruleSetValue, setRuleSetValue] = useState(
     String(initialAssignment?.ruleSetId ?? defaultRuleSetId ?? ''),
   )
+  const [validFromValue, setValidFromValue] = useState(initialAssignment?.validFrom ?? '01.01')
+  const [validToValue, setValidToValue] = useState(initialAssignment?.validTo ?? '31.12')
+
+  const datesValid = isValidDdMm(validFromValue) && isValidDdMm(validToValue)
 
   return (
     <>
@@ -119,6 +136,34 @@ function AssignmentDialogFields({
           </>
         )}
 
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="valid-from">Действует с (ДД.ММ)</Label>
+            <Input
+              id="valid-from"
+              value={validFromValue}
+              onChange={(event) => setValidFromValue(event.target.value)}
+              placeholder="01.06"
+              className="h-11 border-white/10 bg-white/5"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="valid-to">Действует по (ДД.ММ)</Label>
+            <Input
+              id="valid-to"
+              value={validToValue}
+              onChange={(event) => setValidToValue(event.target.value)}
+              placeholder="31.08"
+              className="h-11 border-white/10 bg-white/5"
+            />
+          </div>
+        </div>
+        {!datesValid ? (
+          <p className="text-sm text-amber-300/90">
+            Укажите даты в формате ДД.ММ, например 15.11 или 01.03.
+          </p>
+        ) : null}
+
         <div className="space-y-2">
           <Label>Правило</Label>
           <Select value={ruleSetValue} onValueChange={setRuleSetValue}>
@@ -143,7 +188,7 @@ function AssignmentDialogFields({
         <Button
           type="button"
           className="bg-cyan-300 text-slate-950 hover:bg-cyan-200"
-          disabled={isPending || !ruleSetValue}
+          disabled={isPending || !ruleSetValue || !datesValid}
           onClick={() =>
             onSubmit({
               exchangeId: isEditing
@@ -153,6 +198,8 @@ function AssignmentDialogFields({
                   : exchangeValue,
               currency: isEditing ? initialAssignment.currency : currencyValue.trim() || null,
               ruleSetId: Number(ruleSetValue),
+              validFrom: validFromValue.trim(),
+              validTo: validToValue.trim(),
             })
           }
         >
@@ -186,6 +233,8 @@ export function RuleAssignmentDialog({
     exchangeId: string | null
     currency: string | null
     ruleSetId: number
+    validFrom: string
+    validTo: string
   }) => void
 }) {
   const isEditing = initialAssignment != null
@@ -205,8 +254,8 @@ export function RuleAssignmentDialog({
           </DialogTitle>
           <DialogDescription className="text-slate-400">
             {isEditing
-              ? 'Текущий backend позволяет менять только само правило, а область действия остаётся неизменной.'
-              : 'Назначьте правило на конкретную биржу, валюту или на более общий уровень.'}
+              ? 'Можно изменить набор правил и период действия. Биржа и валюта остаются неизменными.'
+              : 'Назначьте правило на биржу и валюту. Правило действует только в указанном периоде (ДД.ММ, каждый год).'}
           </DialogDescription>
         </DialogHeader>
 

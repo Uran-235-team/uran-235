@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -36,6 +37,7 @@ def apply_assignments(
     exchange_id: str,
     latest_rates: dict[str, Any],
     assignments: list[RuleAssignment],
+    as_of: date,
 ) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     for currency, raw_value in latest_rates.items():
@@ -43,7 +45,9 @@ def apply_assignments(
         if raw is None:
             continue
 
-        assignment = resolve_assignment(assignments, exchange_id, currency)
+        assignment = resolve_assignment(
+            assignments, exchange_id, currency, as_of=as_of
+        )
         if assignment is None:
             continue
 

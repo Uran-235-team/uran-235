@@ -101,11 +101,12 @@ export function RuleAssignmentsPage() {
       <section className="formulas-table" aria-label="Список назначений">
         <div
           className="formulas-head"
-          style={{ gridTemplateColumns: '1.1fr 170px 170px 170px 190px' }}
+          style={{ gridTemplateColumns: '1.1fr 140px 140px 150px 170px 190px' }}
         >
           <span>Область действия</span>
           <span className="formula-action">Биржа</span>
           <span className="formula-action">Валюта</span>
+          <span className="formula-action">Период</span>
           <span className="formula-action">Правило</span>
           <span className="formula-action">Действия</span>
         </div>
@@ -113,9 +114,10 @@ export function RuleAssignmentsPage() {
           {assignments.length === 0 ? (
             <div
               className="formula-row"
-              style={{ gridTemplateColumns: '1.1fr 170px 170px 170px 190px' }}
+              style={{ gridTemplateColumns: '1.1fr 140px 140px 150px 170px 190px' }}
             >
               <span className="formula-name">Назначений пока нет</span>
+              <span className="formula-action">—</span>
               <span className="formula-action">—</span>
               <span className="formula-action">—</span>
               <span className="formula-action">—</span>
@@ -126,11 +128,14 @@ export function RuleAssignmentsPage() {
               <div
                 key={assignment.id}
                 className="formula-row"
-                style={{ gridTemplateColumns: '1.1fr 170px 170px 170px 190px' }}
+                style={{ gridTemplateColumns: '1.1fr 140px 140px 150px 170px 190px' }}
               >
                 <span className="formula-name">{describeAssignmentScope(assignment)}</span>
                 <span className="formula-action">{assignment.exchangeId ?? 'Любая'}</span>
                 <span className="formula-action">{assignment.currency ?? 'Любая'}</span>
+                <span className="formula-action font-mono text-xs">
+                  {assignment.validFrom} — {assignment.validTo}
+                </span>
                 <span className="formula-action">
                   {ruleSetTitles.get(assignment.ruleSetId) ?? `#${assignment.ruleSetId}`}
                 </span>
@@ -173,7 +178,11 @@ export function RuleAssignmentsPage() {
             updateAssignmentMutation.mutate(
               {
                 assignmentId: editingAssignment.id,
-                payload: { ruleSetId: values.ruleSetId },
+                payload: {
+                  ruleSetId: values.ruleSetId,
+                  validFrom: values.validFrom,
+                  validTo: values.validTo,
+                },
               },
               {
                 onSuccess: () => {

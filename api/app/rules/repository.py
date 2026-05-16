@@ -23,25 +23,6 @@ async def get_rule_for_user(
     return result.scalar_one_or_none()
 
 
-async def find_overlapping_rule(
-    session: AsyncSession,
-    user_id: int,
-    low: Decimal,
-    high: Decimal,
-    *,
-    exclude_rule_id: int | None = None,
-) -> Rule | None:
-    stmt = select(Rule).where(
-        Rule.user_id == user_id,
-        Rule.low <= high,
-        Rule.high >= low,
-    )
-    if exclude_rule_id is not None:
-        stmt = stmt.where(Rule.id != exclude_rule_id)
-    result = await session.execute(stmt.limit(1))
-    return result.scalar_one_or_none()
-
-
 async def create_rule(
     session: AsyncSession,
     user_id: int,

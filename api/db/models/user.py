@@ -7,6 +7,7 @@ from db.base import Base
 
 if TYPE_CHECKING:
     from db.models.rule import Rule
+    from db.models.rule_set import RuleSet
 
 
 class User(Base):
@@ -17,3 +18,4 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
 
     rules: Mapped[list["Rule"]] = relationship(back_populates="user")
+    rule_sets: Mapped[list["RuleSet"]] = relationship(back_populates="user")

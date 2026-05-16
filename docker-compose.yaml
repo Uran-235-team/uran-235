@@ -39,8 +39,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      emulator:
-        condition: service_started
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
@@ -52,7 +50,10 @@ services:
       JWT_SECRET_KEY: super-secret-key-change-in-production
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 30
       JWT_REFRESH_TOKEN_EXPIRE_MINUTES: 10080
-      EMULATOR_WS_URL: ws://emulator:8000/ws/rates
+      # Fixed list of exchanges (may be []). Each running emulator must match id+title here.
+      EXCHANGES_JSON: '[{"id":"demo","title":"Демо биржа"}]'
+      # Optional shared secret; must match EMULATOR_INGEST_SECRET on each emulator if set.
+      EMULATOR_INGEST_SECRET: ""
     ports:
       - "8000:8000"
 
@@ -62,8 +63,14 @@ services:
       dockerfile: Dockerfile
     container_name: uran-emulator
     restart: unless-stopped
-    ports:
-      - "8001:8000"
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      EXCHANGE_ID: demo
+      EXCHANGE_TITLE: Демо биржа
+      API_INGEST_WS_URL: ws://api:8000/api/v1/ws/emulator
+      EMULATOR_INGEST_SECRET: ""
 
 volumes:
   postgres_data:

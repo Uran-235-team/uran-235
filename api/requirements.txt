@@ -10,5 +10,3 @@ sqlalchemy
 asyncpg
 alembic
 pydantic
-pydantic-settings
-websockets

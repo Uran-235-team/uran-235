@@ -1,10 +1,9 @@
-from decimal import Decimal
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user
+from app.rule_sets import repository as rule_sets_repository
 from app.rules import repository as rules_repository
 from app.rules.schemas import RuleCreate, RuleResponse, RuleUpdate
 from db.models.user import User
@@ -27,17 +26,6 @@ async def create_rule(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    overlap = await rules_repository.find_overlapping_rule(
-        session,
-        current_user.id,
-        body.low,
-        body.high,
-    )
-    if overlap is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Price range overlaps an existing rule",
-        )
     try:
         return await rules_repository.create_rule(
             session,
@@ -98,18 +86,18 @@ async def update_rule(
             detail="high must be greater than low",
         )
 
-    overlap = await rules_repository.find_overlapping_rule(
-        session,
-        current_user.id,
-        low,
-        high,
-        exclude_rule_id=rule.id,
-    )
-    if overlap is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Price range overlaps an existing rule",
+    if body.low is not None or body.high is not None:
+        conflict = await rule_sets_repository.rule_interval_conflicts_in_any_linked_set(
+            session,
+            rule.id,
+            low,
+            high,
         )
+        if conflict is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Price range overlaps another rule in a linked rule set",
+            )
 
     try:
         return await rules_repository.save_rule(session, rule)

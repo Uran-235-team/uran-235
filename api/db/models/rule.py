@@ -5,8 +5,10 @@ from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Integer, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
+from db.models.rule_set import rule_set_rules
 
 if TYPE_CHECKING:
+    from db.models.rule_set import RuleSet
     from db.models.user import User
 
 
@@ -30,3 +32,7 @@ class Rule(Base):
     high: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="rules")
+    rule_sets: Mapped[list["RuleSet"]] = relationship(
+        secondary=rule_set_rules,
+        back_populates="rules",
+    )

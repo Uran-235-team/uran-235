@@ -1,40 +1,43 @@
 import asyncio
-import json
 import logging
 from typing import Any
 
-import websockets
 from fastapi import WebSocket
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
-from app.config import settings
+from app.config import ExchangeDefinition, settings
 
 logger = logging.getLogger(__name__)
 
-RECONNECT_DELAY_SECONDS = 3
 
+class ExchangeHub:
+    """One exchange: downstream retail clients + rates pushed by emulator."""
 
-class RatesHub:
-    def __init__(self) -> None:
+    def __init__(self, exchange_id: str) -> None:
+        self.exchange_id = exchange_id
         self.latest_rates: dict[str, Any] = {}
         self._clients: set[WebSocket] = set()
         self._lock = asyncio.Lock()
-        self._upstream_task: asyncio.Task | None = None
-        self._stopped = False
+        self._upstream_lock = asyncio.Lock()
+        self._upstream: WebSocket | None = None
+        self.online: bool = False
 
-    async def start(self) -> None:
-        self._stopped = False
-        self._upstream_task = asyncio.create_task(self._upstream_loop())
-
-    async def stop(self) -> None:
-        self._stopped = True
-        if self._upstream_task is not None:
-            self._upstream_task.cancel()
+    async def replace_upstream(self, websocket: WebSocket) -> None:
+        async with self._upstream_lock:
+            previous = self._upstream
+            self._upstream = websocket
+            self.online = True
+        if previous is not None and previous is not websocket:
             try:
-                await self._upstream_task
-            except asyncio.CancelledError:
+                await previous.close(code=4000, reason="Replaced by another emulator")
+            except Exception:
                 pass
-            self._upstream_task = None
+
+    async def clear_upstream_if_matches(self, websocket: WebSocket) -> None:
+        async with self._upstream_lock:
+            if self._upstream == websocket:
+                self._upstream = None
+                self.online = False
 
     async def subscribe(self, websocket: WebSocket) -> None:
         async with self._lock:
@@ -44,21 +47,9 @@ class RatesHub:
         async with self._lock:
             self._clients.discard(websocket)
 
-    async def _upstream_loop(self) -> None:
-        while not self._stopped:
-            try:
-                async with websockets.connect(settings.emulator_ws_url) as upstream:
-                    logger.info("Connected to emulator at %s", settings.emulator_ws_url)
-                    async for message in upstream:
-                        rates = json.loads(message)
-                        self.latest_rates = rates
-                        await self._broadcast(rates)
-            except asyncio.CancelledError:
-                break
-            except Exception as exc:
-                logger.warning("Emulator upstream error: %s", exc)
-                if not self._stopped:
-                    await asyncio.sleep(RECONNECT_DELAY_SECONDS)
+    async def ingest_and_broadcast(self, rates: dict[str, Any]) -> None:
+        self.latest_rates = rates
+        await self._broadcast(rates)
 
     async def _broadcast(self, rates: dict[str, Any]) -> None:
         async with self._lock:
@@ -80,4 +71,26 @@ class RatesHub:
                     self._clients.discard(client)
 
 
-rates_hub = RatesHub()
+class ExchangeHubManager:
+    def __init__(self, exchange_ids: list[str]) -> None:
+        self._hubs = {eid: ExchangeHub(eid) for eid in exchange_ids}
+
+    def known_exchange_ids(self) -> frozenset[str]:
+        return frozenset(self._hubs.keys())
+
+    def get_hub(self, exchange_id: str) -> ExchangeHub | None:
+        return self._hubs.get(exchange_id)
+
+    def exchange_online(self, exchange_id: str) -> bool:
+        hub = self._hubs.get(exchange_id)
+        return hub.online if hub is not None else False
+
+
+def build_hub_manager_from_definitions(
+    definitions: tuple[ExchangeDefinition, ...],
+) -> ExchangeHubManager:
+    ids = [ex.id for ex in definitions]
+    return ExchangeHubManager(ids)
+
+
+hub_manager = build_hub_manager_from_definitions(settings.exchanges)

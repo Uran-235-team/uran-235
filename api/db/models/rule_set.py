@@ -44,4 +44,8 @@ class RuleSet(Base):
         secondary=rule_set_rules,
         back_populates="rule_sets",
     )
-    assignments: Mapped[list["RuleAssignment"]] = relationship(back_populates="rule_set")
+    assignments: Mapped[list["RuleAssignment"]] = relationship(
+        back_populates="rule_set",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

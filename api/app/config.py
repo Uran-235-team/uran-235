@@ -33,6 +33,10 @@ class Settings(BaseSettings):
         ],
         validation_alias="CORS_ALLOW_ORIGINS",
     )
+    cors_allow_origin_regex: str = Field(
+        default=r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$",
+        validation_alias="CORS_ALLOW_ORIGIN_REGEX",
+    )
 
     @property
     def database_url(self) -> str:

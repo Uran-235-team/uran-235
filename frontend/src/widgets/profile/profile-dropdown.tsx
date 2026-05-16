@@ -24,11 +24,9 @@ import { useCurrentUserQuery, useLogoutMutation } from '@/features/auth/api/use-
 import { useAuthStore } from '@/features/auth/model/auth-store'
 
 function initialsFromName(name: string) {
-  return name
-    .split(' ')
-    .map((part) => part[0]?.toUpperCase())
-    .slice(0, 2)
-    .join('')
+  const trimmed = name.trim()
+  if (!trimmed) return '??'
+  return trimmed.slice(0, 2).toUpperCase()
 }
 
 export function ProfileDropdown() {
@@ -44,8 +42,8 @@ export function ProfileDropdown() {
   }, [data, setUser])
 
   const user = data ?? persistedUser
-  const displayName = user?.fullName || user?.username || 'Оператор'
-  const initials = initialsFromName(displayName || 'Оператор')
+  const displayName = user?.username ?? 'Оператор'
+  const initials = initialsFromName(displayName)
 
   return (
     <DropdownMenu>
@@ -61,7 +59,9 @@ export function ProfileDropdown() {
           </Avatar>
           <div className="hidden text-left sm:block">
             <p className="text-sm font-medium text-white">{displayName}</p>
-            <p className="text-xs text-slate-400">{user?.email ?? 'Загрузка профиля'}</p>
+            <p className="text-xs text-slate-400">
+              {isLoading ? 'Загрузка профиля' : 'Аккаунт активен'}
+            </p>
           </div>
           <ChevronDown className="size-4 text-slate-400" />
         </Button>
@@ -79,10 +79,9 @@ export function ProfileDropdown() {
             </Avatar>
             <div className="space-y-1">
               <p className="font-heading text-lg font-semibold text-white">{displayName}</p>
-              <p className="text-sm text-slate-400">{user?.email ?? 'Email пока отсутствует'}</p>
-              <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+              <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
                 <ShieldCheck className="size-3.5 text-cyan-300" />
-                <span>{isLoading ? 'Синхронизация профиля' : user?.username ?? 'Неизвестный пользователь'}</span>
+                <span>{isLoading ? 'Синхронизация профиля' : 'JWT-сессия активна'}</span>
               </div>
             </div>
           </div>

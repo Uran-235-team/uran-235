@@ -1,4 +1,4 @@
-import { Activity, ChartSpline, ShieldEllipsis } from 'lucide-react'
+import { Activity, ChartSpline, Layers, ShieldEllipsis } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 
 import { LogoMark } from '@/shared/ui/logo-mark'
@@ -7,6 +7,7 @@ import { ProfileDropdown } from '@/widgets/profile/profile-dropdown'
 const links = [
   { to: '/dashboard', label: 'Дашборд', icon: ChartSpline },
   { to: '/rules', label: 'Правила', icon: ShieldEllipsis },
+  { to: '/rule-sets', label: 'Наборы', icon: Layers },
 ]
 
 export function TopNav() {

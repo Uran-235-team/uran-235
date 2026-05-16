@@ -1,86 +1,55 @@
 import { useEffect, useState } from 'react'
 
 import { motion } from 'framer-motion'
-import { useQueryClient } from '@tanstack/react-query'
 
-import { useCurrenciesQuery, useCurrencyHistoryQuery } from '@/features/currencies/api/use-currencies'
+import { useExchangesQuery } from '@/features/exchanges/api/use-exchanges'
+import { useLiveRates } from '@/features/exchanges/api/use-live-rates'
+import { useRuleSetsQuery } from '@/features/rule-sets/api/use-rule-sets'
 import { useRulesQuery } from '@/features/rules/api/use-rules'
 import { DashboardHero } from '@/widgets/dashboard/dashboard-hero'
-import { CurrencyChartCard } from '@/widgets/dashboard/currency-chart-card'
-import { CurrencyTableCard } from '@/widgets/dashboard/currency-table-card'
-import { RuleSelectorCard } from '@/widgets/dashboard/rule-selector-card'
-import { useApplyRuleMutation } from '@/features/currencies/api/use-currencies'
+import { ExchangesCard } from '@/widgets/dashboard/exchanges-card'
+import { RatesCard } from '@/widgets/dashboard/rates-card'
 
 export function DashboardPage() {
-  const queryClient = useQueryClient()
-  const currenciesQuery = useCurrenciesQuery()
+  const exchangesQuery = useExchangesQuery()
   const rulesQuery = useRulesQuery()
-  const applyRuleMutation = useApplyRuleMutation()
-  const [selectedPair, setSelectedPair] = useState('')
-  const [selectedRuleId, setSelectedRuleId] = useState('')
+  const ruleSetsQuery = useRuleSetsQuery()
+  const [selectedExchangeId, setSelectedExchangeId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!selectedPair && currenciesQuery.data?.length) {
-      setSelectedPair(currenciesQuery.data[0].pair)
+    if (!selectedExchangeId && exchangesQuery.data?.length) {
+      setSelectedExchangeId(exchangesQuery.data[0].id)
     }
-  }, [currenciesQuery.data, selectedPair])
+  }, [exchangesQuery.data, selectedExchangeId])
 
-  useEffect(() => {
-    if (!selectedRuleId && rulesQuery.data?.length) {
-      const firstActiveRule = rulesQuery.data.find((rule) => rule.status === 'active')
-      setSelectedRuleId(firstActiveRule?.id ?? rulesQuery.data[0].id)
-    }
-  }, [rulesQuery.data, selectedRuleId])
+  const selectedExchange =
+    exchangesQuery.data?.find((exchange) => exchange.id === selectedExchangeId) ?? null
 
-  const historyQuery = useCurrencyHistoryQuery(selectedPair)
-
-  const totalPairs = currenciesQuery.data?.length ?? 0
-  const activeRules =
-    rulesQuery.data?.filter((rule) => rule.status === 'active').length ?? 0
-  const alertCount =
-    currenciesQuery.data?.filter((currency) => currency.status === 'alert').length ?? 0
-  const totalVolume =
-    currenciesQuery.data?.reduce((sum, currency) => sum + currency.volume24h, 0) ?? 0
+  const { rates, status } = useLiveRates(selectedExchangeId)
 
   return (
     <div className="space-y-8">
       <DashboardHero
-        totalPairs={totalPairs}
-        activeRules={activeRules}
-        alertCount={alertCount}
-        totalVolume={totalVolume}
+        exchangesCount={exchangesQuery.data?.length ?? 0}
+        rulesCount={rulesQuery.data?.length ?? 0}
+        ruleSetsCount={ruleSetsQuery.data?.length ?? 0}
       />
-      <section className="grid gap-6 xl:grid-cols-[1.7fr_0.9fr]">
-        <CurrencyChartCard
-          pair={selectedPair}
-          data={historyQuery.data}
-          isLoading={historyQuery.isLoading}
-        />
-        <RuleSelectorCard
-          rules={rulesQuery.data ?? []}
-          selectedRuleId={selectedRuleId}
-          selectedPair={selectedPair}
-          onRuleChange={setSelectedRuleId}
-          onApply={() =>
-            applyRuleMutation.mutate({ pair: selectedPair, ruleId: selectedRuleId })
-          }
-          isApplying={applyRuleMutation.isPending}
-        />
-      </section>
       <motion.section
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
+        transition={{ delay: 0.1 }}
+        className="grid gap-6 xl:grid-cols-[0.9fr_1.7fr]"
       >
-        <CurrencyTableCard
-          data={currenciesQuery.data}
-          rules={rulesQuery.data ?? []}
-          isLoading={currenciesQuery.isLoading}
-          selectedPair={selectedPair}
-          onSelectPair={(pair) => {
-            setSelectedPair(pair)
-            void queryClient.invalidateQueries({ queryKey: ['currency-history', pair] })
-          }}
+        <ExchangesCard
+          exchanges={exchangesQuery.data}
+          isLoading={exchangesQuery.isLoading}
+          selectedExchangeId={selectedExchangeId}
+          onSelect={setSelectedExchangeId}
+        />
+        <RatesCard
+          exchangeTitle={selectedExchange?.title ?? null}
+          rates={rates}
+          status={status}
         />
       </motion.section>
     </div>

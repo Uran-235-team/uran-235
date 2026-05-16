@@ -1,14 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-import type { RuleInput } from '@/entities/rule/types'
+import type { RuleInput, RuleUpdate } from '@/entities/rule/types'
 import {
   createRule,
   deleteRule,
   listRules,
-  toggleRuleStatus,
   updateRule,
-} from '@/services/repositories/rules-repository'
+} from '@/services/api/rules-api'
 
 export const rulesQueryKey = ['rules']
 
@@ -28,6 +27,9 @@ export function useCreateRuleMutation() {
       await queryClient.invalidateQueries({ queryKey: rulesQueryKey })
       toast.success('Правило создано.')
     },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Не удалось создать правило.')
+    },
   })
 }
 
@@ -35,11 +37,14 @@ export function useUpdateRuleMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ ruleId, payload }: { ruleId: string; payload: RuleInput }) =>
+    mutationFn: ({ ruleId, payload }: { ruleId: number; payload: RuleUpdate }) =>
       updateRule(ruleId, payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: rulesQueryKey })
       toast.success('Правило обновлено.')
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Не удалось обновить правило.')
     },
   })
 }
@@ -52,23 +57,12 @@ export function useDeleteRuleMutation() {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: rulesQueryKey }),
-        queryClient.invalidateQueries({ queryKey: ['currencies'] }),
+        queryClient.invalidateQueries({ queryKey: ['rule-sets'] }),
       ])
       toast.success('Правило удалено.')
     },
-  })
-}
-
-export function useToggleRuleMutation() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: toggleRuleStatus,
-    onSuccess: async (rule) => {
-      await queryClient.invalidateQueries({ queryKey: rulesQueryKey })
-      toast.success(
-        rule.status === 'active' ? 'Правило активировано.' : 'Правило деактивировано.',
-      )
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Не удалось удалить правило.')
     },
   })
 }

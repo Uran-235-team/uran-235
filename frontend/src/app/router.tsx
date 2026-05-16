@@ -6,6 +6,7 @@ import { LoginPage } from '@/pages/auth/login-page'
 import { RegisterPage } from '@/pages/auth/register-page'
 import { DashboardPage } from '@/pages/dashboard/dashboard-page'
 import { NotFoundPage } from '@/pages/not-found-page'
+import { RuleSetsPage } from '@/pages/rule-sets/rule-sets-page'
 import { RulesPage } from '@/pages/rules/rules-page'
 import { AppShell } from '@/widgets/layout/app-shell'
 import { useAuthStore } from '@/features/auth/model/auth-store'
@@ -58,6 +59,7 @@ export function AppRouter() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/rules" element={<RulesPage />} />
+          <Route path="/rule-sets" element={<RuleSetsPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

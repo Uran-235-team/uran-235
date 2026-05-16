@@ -17,8 +17,6 @@ export function RegisterForm() {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       username: '',
-      email: '',
-      fullName: '',
       password: '',
       confirmPassword: '',
     },
@@ -27,7 +25,7 @@ export function RegisterForm() {
   return (
     <AuthShell
       title="Создание аккаунта"
-      description="Экран регистрации уже работает с backend auth flow, а остальная часть продукта пока использует typed stubs, которые потом заменятся на реальные currency и rule endpoints."
+      description="Регистрация идёт через реальный backend. Аккаунт состоит из логина и пароля."
       footer={
         <span>
           Уже есть доступ?{' '}
@@ -39,49 +37,20 @@ export function RegisterForm() {
     >
       <form
         className="space-y-5"
-        onSubmit={form.handleSubmit(({ confirmPassword, ...values }) =>
-          mutation.mutate(values),
+        onSubmit={form.handleSubmit(({ username, password }) =>
+          mutation.mutate({ username, password }),
         )}
       >
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="fullName">Полное имя</Label>
-            <Input
-              id="fullName"
-              className="h-12 border-white/10 bg-white/5"
-              {...form.register('fullName')}
-            />
-            {form.formState.errors.fullName ? (
-              <p className="text-xs text-rose-300">
-                {form.formState.errors.fullName.message}
-              </p>
-            ) : null}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="username">Логин</Label>
-            <Input
-              id="username"
-              className="h-12 border-white/10 bg-white/5"
-              {...form.register('username')}
-            />
-            {form.formState.errors.username ? (
-              <p className="text-xs text-rose-300">
-                {form.formState.errors.username.message}
-              </p>
-            ) : null}
-          </div>
-        </div>
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="username">Логин</Label>
           <Input
-            id="email"
-            type="email"
+            id="username"
             className="h-12 border-white/10 bg-white/5"
-            {...form.register('email')}
+            {...form.register('username')}
           />
-          {form.formState.errors.email ? (
+          {form.formState.errors.username ? (
             <p className="text-xs text-rose-300">
-              {form.formState.errors.email.message}
+              {form.formState.errors.username.message}
             </p>
           ) : null}
         </div>

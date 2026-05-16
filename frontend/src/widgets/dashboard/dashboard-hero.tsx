@@ -1,8 +1,7 @@
 import { motion } from 'framer-motion'
-import { Activity, AlertTriangle, ShieldCheck, WalletCards } from 'lucide-react'
+import { Activity, ShieldCheck, WalletCards } from 'lucide-react'
 
 import { Card, CardContent } from '@/components/ui/card'
-import { formatCompactNumber } from '@/shared/lib/format'
 
 const cardAnimation = {
   hidden: { opacity: 0, y: 18 },
@@ -10,38 +9,30 @@ const cardAnimation = {
 }
 
 export function DashboardHero({
-  totalPairs,
-  activeRules,
-  alertCount,
-  totalVolume,
+  exchangesCount,
+  rulesCount,
+  ruleSetsCount,
 }: {
-  totalPairs: number
-  activeRules: number
-  alertCount: number
-  totalVolume: number
+  exchangesCount: number
+  rulesCount: number
+  ruleSetsCount: number
 }) {
   const metrics = [
     {
-      label: 'Отслеживаемые пары',
-      value: totalPairs.toString(),
+      label: 'Подключённые биржи',
+      value: exchangesCount.toString(),
       icon: WalletCards,
       tone: 'from-cyan-400/20 to-cyan-400/0',
     },
     {
-      label: 'Активные правила',
-      value: activeRules.toString(),
+      label: 'Правила',
+      value: rulesCount.toString(),
       icon: ShieldCheck,
       tone: 'from-blue-400/20 to-blue-400/0',
     },
     {
-      label: 'Алерты наблюдения',
-      value: alertCount.toString(),
-      icon: AlertTriangle,
-      tone: 'from-rose-400/20 to-rose-400/0',
-    },
-    {
-      label: 'Объем за 24ч',
-      value: formatCompactNumber(totalVolume),
+      label: 'Наборы правил',
+      value: ruleSetsCount.toString(),
       icon: Activity,
       tone: 'from-emerald-400/20 to-emerald-400/0',
     },
@@ -57,19 +48,19 @@ export function DashboardHero({
       >
         <div className="space-y-5">
           <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-cyan-200">
-            Dashboard валютных правил
+            Центр управления uran-235
           </div>
           <div className="space-y-3">
             <h1 className="font-heading max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-5xl">
-              Темный премиальный центр управления для мониторинга валют и применения правил.
+              Live-курсы валют и ваши торговые правила в одном dashboard.
             </h1>
             <p className="max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
-              Backend сейчас реально отдает авторизацию, а торговые правила и рыночные сценарии уже разложены как production-ready frontend-модули с типизированными заглушками под следующую API-итерацию.
+              Биржи подключаются через сервис emulator по WebSocket. Правила и их наборы редактируются в соответствующих разделах.
             </p>
           </div>
         </div>
       </motion.div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
         {metrics.map((metric, index) => (
           <motion.div
             key={metric.label}
@@ -78,10 +69,7 @@ export function DashboardHero({
             transition={{ delay: 0.08 * (index + 1) }}
           >
             <Card className="h-full rounded-[1.75rem] border-white/10 bg-slate-950/75 backdrop-blur-2xl">
-              <CardContent className="flex h-full flex-col justify-between gap-8 p-5">
-                <div className={`w-fit rounded-2xl bg-gradient-to-br ${metric.tone} p-3`}>
-                  <metric.icon className="size-5 text-white" />
-                </div>
+              <CardContent className="flex h-full items-center justify-between gap-4 p-5">
                 <div className="space-y-1">
                   <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
                     {metric.label}
@@ -89,6 +77,9 @@ export function DashboardHero({
                   <p className="font-heading text-3xl font-semibold text-white">
                     {metric.value}
                   </p>
+                </div>
+                <div className={`rounded-2xl bg-gradient-to-br ${metric.tone} p-3`}>
+                  <metric.icon className="size-5 text-white" />
                 </div>
               </CardContent>
             </Card>

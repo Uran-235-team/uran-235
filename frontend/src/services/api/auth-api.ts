@@ -9,30 +9,15 @@ type AuthResponseDto = {
 
 type UserResponseDto = {
   username: string
-  email: string
-  full_name: string
-  is_active: boolean
 }
 
-type LoginPayload = {
+type CredentialsPayload = {
   username: string
-  password: string
-}
-
-type RegisterPayload = {
-  username: string
-  email: string
-  fullName: string
   password: string
 }
 
 function mapUser(user: UserResponseDto): User {
-  return {
-    username: user.username,
-    email: user.email,
-    fullName: user.full_name,
-    isActive: user.is_active,
-  }
+  return { username: user.username }
 }
 
 function mapTokens(response: AuthResponseDto) {
@@ -42,18 +27,13 @@ function mapTokens(response: AuthResponseDto) {
   }
 }
 
-export async function login(payload: LoginPayload) {
+export async function login(payload: CredentialsPayload) {
   const response = await apiClient.post<AuthResponseDto>('/api/v1/auth/login', payload)
   return mapTokens(response.data)
 }
 
-export async function register(payload: RegisterPayload) {
-  const response = await apiClient.post<AuthResponseDto>('/api/v1/auth/register', {
-    username: payload.username,
-    email: payload.email,
-    full_name: payload.fullName,
-    password: payload.password,
-  })
+export async function register(payload: CredentialsPayload) {
+  const response = await apiClient.post<AuthResponseDto>('/api/v1/auth/register', payload)
   return mapTokens(response.data)
 }
 

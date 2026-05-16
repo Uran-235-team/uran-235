@@ -15,30 +15,33 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import type { Rule, RuleInput, RuleStatus, RuleType } from '@/entities/rule/types'
+import type { Rule, RuleInput } from '@/entities/rule/types'
 
-const ruleFormSchema = z.object({
-  name: z.string().min(2, 'Название правила обязательно.'),
-  type: z.enum(['threshold', 'volatility', 'spread', 'schedule']),
-  parametersSummary: z.string().min(4, 'Добавьте хотя бы короткое описание параметров.'),
-  description: z.string().min(4, 'Добавьте краткое описание.'),
-  status: z.enum(['active', 'draft', 'disabled']),
-})
+const decimalString = z
+  .string()
+  .min(1, 'Обязательное поле')
+  .refine((value) => /^\d+(\.\d+)?$/.test(value), 'Введите положительное число')
+  .refine((value) => Number(value) > 0, 'Должно быть больше нуля')
 
-const initialValues: RuleInput = {
-  name: '',
-  type: 'threshold',
-  parametersSummary: '',
-  description: '',
-  status: 'draft',
+const ruleFormSchema = z
+  .object({
+    title: z.string().min(1, 'Название обязательно').max(64),
+    extra: z.coerce.number().int('Целое число').positive('Должно быть > 0'),
+    low: decimalString,
+    high: decimalString,
+  })
+  .refine((values) => Number(values.high) > Number(values.low), {
+    path: ['high'],
+    message: 'high должно быть больше low',
+  })
+
+type FormValues = z.input<typeof ruleFormSchema>
+
+const initialValues: FormValues = {
+  title: '',
+  extra: 1,
+  low: '',
+  high: '',
 }
 
 export function RuleFormDialog({
@@ -54,24 +57,21 @@ export function RuleFormDialog({
   onSubmit: (values: RuleInput) => void
   isPending: boolean
 }) {
-  const form = useForm<z.infer<typeof ruleFormSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(ruleFormSchema),
     defaultValues: initialValues,
   })
 
   useEffect(() => {
-    if (!open) {
-      return
-    }
+    if (!open) return
 
     form.reset(
       initialRule
         ? {
-            name: initialRule.name,
-            type: initialRule.type,
-            parametersSummary: initialRule.parametersSummary,
-            description: initialRule.description,
-            status: initialRule.status,
+            title: initialRule.title,
+            extra: initialRule.extra,
+            low: initialRule.low,
+            high: initialRule.high,
           }
         : initialValues,
     )
@@ -85,91 +85,72 @@ export function RuleFormDialog({
             {initialRule ? 'Редактирование правила' : 'Создание правила'}
           </DialogTitle>
           <DialogDescription className="text-slate-400">
-            Backend endpoints для правил еще в планах, поэтому это окно уже работает на финальном UI-контракте, но пока через временное хранилище-заглушку.
+            Правило — это интервал цены [low, high] и дополнительный параметр extra. Связь с наборами правил настраивается отдельно.
           </DialogDescription>
         </DialogHeader>
         <form
           className="space-y-5"
-          onSubmit={form.handleSubmit((values) => onSubmit(values))}
+          onSubmit={form.handleSubmit((values) =>
+            onSubmit({
+              title: values.title,
+              extra: Number(values.extra),
+              low: values.low,
+              high: values.high,
+            }),
+          )}
         >
           <div className="space-y-2">
-            <Label htmlFor="rule-name">Название правила</Label>
+            <Label htmlFor="rule-title">Название</Label>
             <Input
-              id="rule-name"
+              id="rule-title"
               className="border-white/10 bg-white/5"
-              {...form.register('name')}
+              {...form.register('title')}
             />
-            {form.formState.errors.name ? (
-              <p className="text-xs text-rose-300">{form.formState.errors.name.message}</p>
+            {form.formState.errors.title ? (
+              <p className="text-xs text-rose-300">{form.formState.errors.title.message}</p>
             ) : null}
           </div>
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-3">
             <div className="space-y-2">
-              <Label>Тип</Label>
-              <Select
-                value={form.watch('type')}
-                onValueChange={(value) =>
-                  form.setValue('type', value as RuleType, { shouldValidate: true })
-                }
-              >
-                <SelectTrigger className="border-white/10 bg-white/5">
-                  <SelectValue placeholder="Выберите тип" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="threshold">Порог</SelectItem>
-                  <SelectItem value="volatility">Волатильность</SelectItem>
-                  <SelectItem value="spread">Спред</SelectItem>
-                  <SelectItem value="schedule">Расписание</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="rule-extra">Extra</Label>
+              <Input
+                id="rule-extra"
+                type="number"
+                min={1}
+                step={1}
+                className="border-white/10 bg-white/5"
+                {...form.register('extra')}
+              />
+              {form.formState.errors.extra ? (
+                <p className="text-xs text-rose-300">{form.formState.errors.extra.message}</p>
+              ) : null}
             </div>
             <div className="space-y-2">
-              <Label>Статус</Label>
-              <Select
-                value={form.watch('status')}
-                onValueChange={(value) =>
-                  form.setValue('status', value as RuleStatus, { shouldValidate: true })
-                }
-              >
-                <SelectTrigger className="border-white/10 bg-white/5">
-                  <SelectValue placeholder="Выберите статус" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Активно</SelectItem>
-                  <SelectItem value="draft">Черновик</SelectItem>
-                  <SelectItem value="disabled">Отключено</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="rule-low">Low</Label>
+              <Input
+                id="rule-low"
+                inputMode="decimal"
+                placeholder="0.00"
+                className="border-white/10 bg-white/5"
+                {...form.register('low')}
+              />
+              {form.formState.errors.low ? (
+                <p className="text-xs text-rose-300">{form.formState.errors.low.message}</p>
+              ) : null}
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="rule-parameters">Параметры</Label>
-            <Textarea
-              id="rule-parameters"
-              rows={3}
-              className="border-white/10 bg-white/5"
-              placeholder="Например: alert выше 1.0850, cooldown 15m"
-              {...form.register('parametersSummary')}
-            />
-            {form.formState.errors.parametersSummary ? (
-              <p className="text-xs text-rose-300">
-                {form.formState.errors.parametersSummary.message}
-              </p>
-            ) : null}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="rule-description">Описание</Label>
-            <Textarea
-              id="rule-description"
-              rows={4}
-              className="border-white/10 bg-white/5"
-              {...form.register('description')}
-            />
-            {form.formState.errors.description ? (
-              <p className="text-xs text-rose-300">
-                {form.formState.errors.description.message}
-              </p>
-            ) : null}
+            <div className="space-y-2">
+              <Label htmlFor="rule-high">High</Label>
+              <Input
+                id="rule-high"
+                inputMode="decimal"
+                placeholder="0.00"
+                className="border-white/10 bg-white/5"
+                {...form.register('high')}
+              />
+              {form.formState.errors.high ? (
+                <p className="text-xs text-rose-300">{form.formState.errors.high.message}</p>
+              ) : null}
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -185,7 +166,7 @@ export function RuleFormDialog({
               className="bg-cyan-300 text-slate-950 hover:bg-cyan-200"
               disabled={isPending}
             >
-              {initialRule ? 'Сохранить изменения' : 'Создать правило'}
+              {initialRule ? 'Сохранить' : 'Создать'}
             </Button>
           </DialogFooter>
         </form>

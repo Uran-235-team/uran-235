@@ -24,6 +24,16 @@ class Settings(BaseSettings):
     emulator_ingest_secret: str = Field(default="", validation_alias="EMULATOR_INGEST_SECRET")
     ws_auth_timeout_seconds: int = Field(default=10)
 
+    cors_allow_origins: list[str] = Field(
+        default=[
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5174",
+        ],
+        validation_alias="CORS_ALLOW_ORIGINS",
+    )
+
     @property
     def database_url(self) -> str:
         return (

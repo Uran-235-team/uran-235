@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 
 import { useExchangesQuery } from '@/features/exchanges/api/use-exchanges'
 import { useLiveRates } from '@/features/exchanges/api/use-live-rates'
+import { usePricedRateCharts } from '@/features/exchanges/api/use-priced-rate-charts'
 import { useRuleSetsQuery } from '@/features/rule-sets/api/use-rule-sets'
 import { useRulesQuery } from '@/features/rules/api/use-rules'
 import { DashboardHero } from '@/widgets/dashboard/dashboard-hero'
@@ -25,7 +26,9 @@ export function DashboardPage() {
   const selectedExchange =
     exchangesQuery.data?.find((exchange) => exchange.id === selectedExchangeId) ?? null
 
-  const { rates, status } = useLiveRates(selectedExchangeId)
+  const { rates, status, messageCount } = useLiveRates(selectedExchangeId)
+  const { series, pricedRates, isSyncing, syncError, lastUpdatedAt, hasBufferedUpdates } =
+    usePricedRateCharts(selectedExchangeId, rates, messageCount)
 
   return (
     <div className="space-y-8">
@@ -50,6 +53,12 @@ export function DashboardPage() {
           exchangeTitle={selectedExchange?.title ?? null}
           rates={rates}
           status={status}
+          series={series}
+          pricedRates={pricedRates}
+          isSyncing={isSyncing}
+          syncError={syncError}
+          lastUpdatedAt={lastUpdatedAt}
+          hasBufferedUpdates={hasBufferedUpdates}
         />
       </motion.section>
     </div>

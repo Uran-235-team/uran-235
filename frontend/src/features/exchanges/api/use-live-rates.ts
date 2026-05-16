@@ -18,17 +18,23 @@ export function useLiveRates(exchangeId: string | null | undefined) {
   const accessToken = useAuthStore((state) => state.accessToken)
   const [rates, setRates] = useState<LiveRates>({})
   const [status, setStatus] = useState<Status>('idle')
+  const [lastMessageAt, setLastMessageAt] = useState<number | null>(null)
+  const [messageCount, setMessageCount] = useState(0)
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
     if (!exchangeId || !accessToken) {
       setRates({})
       setStatus('idle')
+      setLastMessageAt(null)
+      setMessageCount(0)
       return
     }
 
     setRates({})
     setStatus('connecting')
+    setLastMessageAt(null)
+    setMessageCount(0)
     const ws = new WebSocket(buildWsUrl(exchangeId))
     wsRef.current = ws
 
@@ -46,6 +52,8 @@ export function useLiveRates(exchangeId: string | null | undefined) {
         }
         if (payload && typeof payload === 'object') {
           setRates(payload as LiveRates)
+          setLastMessageAt(Date.now())
+          setMessageCount((current) => current + 1)
         }
       } catch {
         // ignore malformed frame
@@ -66,5 +74,5 @@ export function useLiveRates(exchangeId: string | null | undefined) {
     }
   }, [exchangeId, accessToken])
 
-  return { rates, status }
+  return { rates, status, lastMessageAt, messageCount }
 }

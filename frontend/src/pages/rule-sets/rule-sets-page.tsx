@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import { motion } from 'framer-motion'
-import { PencilLine, Plus, Trash2, Unlink } from 'lucide-react'
+import { PencilLine, Plus, Tags, Trash2, Unlink } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,7 +13,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import type { RuleAssignment } from '@/entities/rule-assignment/types'
 import type { RuleSet } from '@/entities/rule-set/types'
+import { useExchangesQuery } from '@/features/exchanges/api/use-exchanges'
+import {
+  useCreateRuleAssignmentMutation,
+  useDeleteRuleAssignmentMutation,
+  useRuleAssignmentsQuery,
+  useUpdateRuleAssignmentMutation,
+} from '@/features/rule-assignments/api/use-rule-assignments'
+import { RuleAssignmentDialog } from '@/features/rule-assignments/components/rule-assignment-dialog'
 import {
   useCreateRuleSetMutation,
   useDeleteRuleSetMutation,
@@ -30,17 +39,31 @@ import { cn } from '@/lib/utils'
 import { formatDecimal } from '@/shared/lib/format'
 import { EmptyState } from '@/shared/ui/empty-state'
 
+function describeAssignmentScope(assignment: RuleAssignment) {
+  const exchange = assignment.exchangeId ?? 'Любая биржа'
+  const currency = assignment.currency ?? 'Любая валюта'
+  return `${exchange} / ${currency}`
+}
+
 export function RuleSetsPage() {
   const ruleSetsQuery = useRuleSetsQuery()
   const rulesQuery = useRulesQuery()
+  const exchangesQuery = useExchangesQuery()
+  const assignmentsQuery = useRuleAssignmentsQuery()
+
   const createMutation = useCreateRuleSetMutation()
   const updateMutation = useUpdateRuleSetMutation()
   const deleteMutation = useDeleteRuleSetMutation()
+  const createAssignmentMutation = useCreateRuleAssignmentMutation()
+  const updateAssignmentMutation = useUpdateRuleAssignmentMutation()
+  const deleteAssignmentMutation = useDeleteRuleAssignmentMutation()
 
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<RuleSet | null>(null)
   const [linkOpen, setLinkOpen] = useState(false)
+  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
+  const [editingAssignment, setEditingAssignment] = useState<RuleAssignment | null>(null)
 
   useEffect(() => {
     if (selectedId == null && ruleSetsQuery.data?.length) {
@@ -48,8 +71,7 @@ export function RuleSetsPage() {
     }
   }, [ruleSetsQuery.data, selectedId])
 
-  const selectedRuleSet =
-    ruleSetsQuery.data?.find((set) => set.id === selectedId) ?? null
+  const selectedRuleSet = ruleSetsQuery.data?.find((set) => set.id === selectedId) ?? null
   const setRulesQuery = useRuleSetRulesQuery(selectedRuleSet?.id ?? null)
   const linkMutation = useLinkRuleMutation(selectedRuleSet?.id ?? 0)
   const unlinkMutation = useUnlinkRuleMutation(selectedRuleSet?.id ?? 0)
@@ -61,6 +83,24 @@ export function RuleSetsPage() {
   const candidates = useMemo(
     () => (rulesQuery.data ?? []).filter((rule) => !linkedIds.has(rule.id)),
     [rulesQuery.data, linkedIds],
+  )
+  const ruleSetTitles = useMemo(
+    () =>
+      new Map((ruleSetsQuery.data ?? []).map((ruleSet) => [ruleSet.id, ruleSet.title] as const)),
+    [ruleSetsQuery.data],
+  )
+  const assignments = useMemo(
+    () =>
+      [...(assignmentsQuery.data ?? [])].sort((a, b) => {
+        const byExchange = (a.exchangeId ?? '').localeCompare(b.exchangeId ?? '')
+        if (byExchange !== 0) return byExchange
+
+        const byCurrency = (a.currency ?? '').localeCompare(b.currency ?? '')
+        if (byCurrency !== 0) return byCurrency
+
+        return a.id - b.id
+      }),
+    [assignmentsQuery.data],
   )
 
   return (
@@ -75,7 +115,9 @@ export function RuleSetsPage() {
           Сгруппируйте правила в наборы
         </h1>
         <p className="max-w-3xl text-sm leading-7 text-slate-400 sm:text-base">
-          Наборы определяют, какие правила применяются вместе. Backend следит, чтобы интервалы цен внутри одного набора не пересекались.
+          Наборы определяют, какие правила применяются вместе, а назначения ниже связывают их с
+          биржами и валютами. Backend следит, чтобы интервалы цен внутри одного набора не
+          пересекались.
         </p>
       </motion.div>
 
@@ -222,6 +264,104 @@ export function RuleSetsPage() {
         </Card>
       </section>
 
+      <motion.section
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <Card className="rounded-[2rem] border-white/10 bg-slate-950/80 backdrop-blur-2xl">
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Назначения</p>
+              <CardTitle className="font-heading text-2xl text-white">
+                Связка наборов с биржами и валютами
+              </CardTitle>
+              <p className="max-w-3xl text-sm text-slate-400">
+                Можно создать точечное назначение для пары биржа/валюта или оставить одно из
+                полей пустым, чтобы правило работало шире.
+              </p>
+            </div>
+            <Button
+              className="rounded-2xl bg-cyan-300 text-slate-950 hover:bg-cyan-200"
+              disabled={!ruleSetsQuery.data?.length}
+              onClick={() => {
+                setEditingAssignment(null)
+                setAssignmentDialogOpen(true)
+              }}
+            >
+              <Plus className="size-4" />
+              Создать назначение
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {assignments.length === 0 ? (
+              <EmptyState
+                title="Назначений пока нет"
+                description="Создайте первое назначение, чтобы backend начал подбирать набор правил по бирже и валюте."
+              />
+            ) : (
+              <div className="overflow-hidden rounded-[1.5rem] border border-white/10">
+                <Table>
+                  <TableHeader className="bg-white/5">
+                    <TableRow className="border-white/10 hover:bg-white/5">
+                      <TableHead className="text-slate-400">Scope</TableHead>
+                      <TableHead className="text-slate-400">Биржа</TableHead>
+                      <TableHead className="text-slate-400">Валюта</TableHead>
+                      <TableHead className="text-slate-400">Набор правил</TableHead>
+                      <TableHead className="text-right text-slate-400">Действия</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {assignments.map((assignment) => (
+                      <TableRow key={assignment.id} className="border-white/8 hover:bg-white/5">
+                        <TableCell className="font-mono text-xs text-slate-300">
+                          {describeAssignmentScope(assignment)}
+                        </TableCell>
+                        <TableCell className="text-slate-300">
+                          {assignment.exchangeId ?? 'Любая'}
+                        </TableCell>
+                        <TableCell className="text-slate-300">
+                          {assignment.currency ?? 'Любая'}
+                        </TableCell>
+                        <TableCell className="text-white">
+                          <div className="inline-flex items-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-sm">
+                            <Tags className="size-4 text-cyan-200" />
+                            <span>{ruleSetTitles.get(assignment.ruleSetId) ?? `#${assignment.ruleSetId}`}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="rounded-xl border border-white/10 bg-white/5"
+                              onClick={() => {
+                                setEditingAssignment(assignment)
+                                setAssignmentDialogOpen(true)
+                              }}
+                            >
+                              <PencilLine className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="rounded-xl border border-white/10 bg-white/5"
+                              onClick={() => deleteAssignmentMutation.mutate(assignment.id)}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.section>
+
       <RuleSetFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
@@ -235,6 +375,7 @@ export function RuleSetsPage() {
             )
             return
           }
+
           createMutation.mutate(values, {
             onSuccess: (created) => {
               setFormOpen(false)
@@ -254,6 +395,39 @@ export function RuleSetsPage() {
             onSuccess: () => setLinkOpen(false),
           })
         }
+      />
+
+      <RuleAssignmentDialog
+        open={assignmentDialogOpen}
+        onOpenChange={setAssignmentDialogOpen}
+        initialAssignment={editingAssignment}
+        ruleSets={ruleSetsQuery.data ?? []}
+        exchanges={exchangesQuery.data ?? []}
+        defaultRuleSetId={selectedRuleSet?.id ?? ruleSetsQuery.data?.[0]?.id ?? null}
+        isPending={createAssignmentMutation.isPending || updateAssignmentMutation.isPending}
+        onSubmit={(values) => {
+          if (editingAssignment) {
+            updateAssignmentMutation.mutate(
+              {
+                assignmentId: editingAssignment.id,
+                payload: { ruleSetId: values.ruleSetId },
+              },
+              {
+                onSuccess: () => {
+                  setAssignmentDialogOpen(false)
+                  setEditingAssignment(null)
+                },
+              },
+            )
+            return
+          }
+
+          createAssignmentMutation.mutate(values, {
+            onSuccess: () => {
+              setAssignmentDialogOpen(false)
+            },
+          })
+        }}
       />
     </div>
   )

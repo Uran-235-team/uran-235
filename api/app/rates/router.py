@@ -3,17 +3,20 @@ import json
 import logging
 import re
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.websockets import WebSocketState
 
 from app.config import settings
 from app.dependencies import get_current_user
 from app.rates.hub import hub_manager
-from app.rates.schemas import ExchangePublic
+from app.rates.pricing import apply_assignments
+from app.rates.schemas import ExchangePublic, PricedRatesResponse
+from app.rule_assignments import repository as assignments_repository
 from app.security import AccessTokenError, verify_access_token
 from app.redis_client import redis_client
 from db.models.user import User
-from db.session import SessionLocal
+from db.session import SessionLocal, get_session
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,40 @@ async def list_exchanges(current_user: User = Depends(get_current_user)):
         ExchangePublic(id=ex_id, title=title)
         for ex_id, title in hub_manager.list_exchanges()
     ]
+
+
+@router.get(
+    "/exchanges/{exchange_id}/rates",
+    response_model=PricedRatesResponse,
+)
+async def get_priced_rates(
+    exchange_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    exchange_id = exchange_id.strip()
+    if not _EXCHANGE_ID_RE.fullmatch(exchange_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid exchange_id",
+        )
+
+    hub = hub_manager.get_hub(exchange_id)
+    if hub is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Exchange is not connected",
+        )
+
+    assignments = await assignments_repository.list_for_user_with_rules(
+        session, current_user.id
+    )
+    rates = apply_assignments(
+        exchange_id=exchange_id,
+        latest_rates=hub.latest_rates,
+        assignments=assignments,
+    )
+    return PricedRatesResponse(exchange_id=exchange_id, rates=rates)
 
 
 @router.websocket("/ws/emulator")

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth.router import router as auth_router
 from app.config import settings
 from app.rates.router import router as rates_router
+from app.rule_assignments.router import router as rule_assignments_router
 from app.rule_sets.router import router as rule_sets_router
 from app.rules.router import router as rules_router
 from app.redis_client import redis_client
@@ -40,6 +41,7 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(rates_router, prefix="/api/v1")
 app.include_router(rules_router, prefix="/api/v1")
 app.include_router(rule_sets_router, prefix="/api/v1")
+app.include_router(rule_assignments_router, prefix="/api/v1")
 
 
 @app.get("/health")

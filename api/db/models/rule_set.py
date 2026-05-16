@@ -7,6 +7,7 @@ from db.base import Base
 
 if TYPE_CHECKING:
     from db.models.rule import Rule
+    from db.models.rule_assignment import RuleAssignment
     from db.models.user import User
 
 
@@ -43,3 +44,4 @@ class RuleSet(Base):
         secondary=rule_set_rules,
         back_populates="rule_sets",
     )
+    assignments: Mapped[list["RuleAssignment"]] = relationship(back_populates="rule_set")

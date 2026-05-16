@@ -4,9 +4,6 @@ import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 import { z } from 'zod'
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useRegisterMutation } from '@/features/auth/api/use-auth'
 import { AuthShell } from '@/features/auth/components/auth-shell'
 import { registerSchema } from '@/features/auth/lib/schemas'
@@ -24,81 +21,69 @@ export function RegisterForm() {
 
   return (
     <AuthShell
-      title="Создание аккаунта"
-      description="Регистрация идёт через реальный backend. Аккаунт состоит из логина и пароля."
+      title="Регистрация"
       footer={
-        <span>
-          Уже есть доступ?{' '}
-          <Link className="text-cyan-300 transition hover:text-cyan-200" to="/login">
+        <>
+          Уже есть аккаунт?
+          <Link className="text-link" to="/login">
             Войти
           </Link>
-        </span>
+        </>
       }
     >
       <form
-        className="space-y-5"
         onSubmit={form.handleSubmit(({ username, password }) =>
           mutation.mutate({ username, password }),
         )}
       >
-        <div className="space-y-2">
-          <Label htmlFor="username">Логин</Label>
-          <Input
-            id="username"
-            className="h-12 border-white/10 bg-white/5"
-            {...form.register('username')}
+        <label className="field">
+          <span>Логин</span>
+          <input autoComplete="username" {...form.register('username')} />
+        </label>
+        {form.formState.errors.username ? (
+          <p className="mb-4 text-xs text-rose-300">{form.formState.errors.username.message}</p>
+        ) : null}
+
+        <label className="field">
+          <span>Пароль</span>
+          <input type="password" autoComplete="new-password" {...form.register('password')} />
+        </label>
+        {form.formState.errors.password ? (
+          <p className="mb-4 text-xs text-rose-300">{form.formState.errors.password.message}</p>
+        ) : null}
+
+        <label className="field confirm-field">
+          <span>Подтвердите пароль</span>
+          <input
+            type="password"
+            autoComplete="new-password"
+            {...form.register('confirmPassword')}
           />
-          {form.formState.errors.username ? (
-            <p className="text-xs text-rose-300">
-              {form.formState.errors.username.message}
-            </p>
-          ) : null}
-        </div>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="password">Пароль</Label>
-            <Input
-              id="password"
-              type="password"
-              className="h-12 border-white/10 bg-white/5"
-              {...form.register('password')}
-            />
-            {form.formState.errors.password ? (
-              <p className="text-xs text-rose-300">
-                {form.formState.errors.password.message}
-              </p>
-            ) : null}
+        </label>
+        {form.formState.errors.confirmPassword ? (
+          <p className="mb-4 text-xs text-rose-300">
+            {form.formState.errors.confirmPassword.message}
+          </p>
+        ) : null}
+
+        <button className="primary-action btn-slice magnetic" type="submit" disabled={mutation.isPending}>
+          <span className="top" aria-hidden="true">
+            <span className="auth-label">
+              {mutation.isPending ? 'Создаём' : 'Зарегистрироваться'}
+            </span>
+          </span>
+          <span className="bottom" aria-hidden="true">
+            <span className="auth-label">
+              {mutation.isPending ? 'Создаём' : 'Зарегистрироваться'}
+            </span>
+          </span>
+        </button>
+        {mutation.isPending ? (
+          <div className="mt-3 flex items-center gap-2 text-sm text-slate-300">
+            <LoaderCircle className="size-4 animate-spin" />
+            Создаём аккаунт
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Подтвердите пароль</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              className="h-12 border-white/10 bg-white/5"
-              {...form.register('confirmPassword')}
-            />
-            {form.formState.errors.confirmPassword ? (
-              <p className="text-xs text-rose-300">
-                {form.formState.errors.confirmPassword.message}
-              </p>
-            ) : null}
-          </div>
-        </div>
-        <Button
-          type="submit"
-          size="lg"
-          className="h-12 w-full rounded-2xl bg-cyan-300 text-slate-950 hover:bg-cyan-200"
-          disabled={mutation.isPending}
-        >
-          {mutation.isPending ? (
-            <>
-              <LoaderCircle className="animate-spin" />
-              Создаем аккаунт
-            </>
-          ) : (
-            'Открыть workspace'
-          )}
-        </Button>
+        ) : null}
       </form>
     </AuthShell>
   )

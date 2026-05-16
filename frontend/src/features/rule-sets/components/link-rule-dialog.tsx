@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -34,30 +34,31 @@ export function LinkRuleDialog({
   isPending: boolean
 }) {
   const [selected, setSelected] = useState<string>('')
-
-  useEffect(() => {
-    if (open) setSelected('')
-  }, [open])
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) setSelected('')
+    onOpenChange(nextOpen)
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="border-white/10 bg-slate-950/95 text-white backdrop-blur-2xl">
         <DialogHeader>
-          <DialogTitle className="font-heading text-2xl">Привязать правило</DialogTitle>
+          <DialogTitle className="font-heading text-2xl">Добавить условие в правило</DialogTitle>
           <DialogDescription className="text-slate-400">
-            Backend проверит, что интервалы цен не пересекаются с уже связанными правилами в этом наборе.
+            Backend проверит, что диапазоны не пересекаются с уже включёнными условиями этого
+            правила.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <Label>Правило</Label>
+          <Label>Условие</Label>
           <Select value={selected} onValueChange={setSelected}>
             <SelectTrigger className="border-white/10 bg-white/5">
-              <SelectValue placeholder="Выберите правило" />
+              <SelectValue placeholder="Выберите условие" />
             </SelectTrigger>
             <SelectContent>
               {candidates.length === 0 ? (
                 <SelectItem value="__none__" disabled>
-                  Нет правил, которые можно привязать
+                  Нет условий, которые можно добавить
                 </SelectItem>
               ) : (
                 candidates.map((rule) => (
@@ -84,7 +85,7 @@ export function LinkRuleDialog({
             disabled={isPending || !selected}
             onClick={() => selected && onConfirm(Number(selected))}
           >
-            Привязать
+            Добавить
           </Button>
         </DialogFooter>
       </DialogContent>

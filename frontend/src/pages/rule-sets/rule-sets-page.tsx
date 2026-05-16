@@ -278,7 +278,7 @@ export function RuleSetsPage() {
               </CardTitle>
               <p className="max-w-3xl text-sm text-slate-400">
                 Можно создать точечное назначение для пары биржа/валюта или оставить одно из
-                полей пустым, чтобы правило работало шире.
+                полей пустым. Период действия задаётся в формате ДД.ММ и повторяется каждый год.
               </p>
             </div>
             <Button
@@ -307,6 +307,7 @@ export function RuleSetsPage() {
                       <TableHead className="text-slate-400">Scope</TableHead>
                       <TableHead className="text-slate-400">Биржа</TableHead>
                       <TableHead className="text-slate-400">Валюта</TableHead>
+                      <TableHead className="text-slate-400">Период</TableHead>
                       <TableHead className="text-slate-400">Набор правил</TableHead>
                       <TableHead className="text-right text-slate-400">Действия</TableHead>
                     </TableRow>
@@ -322,6 +323,9 @@ export function RuleSetsPage() {
                         </TableCell>
                         <TableCell className="text-slate-300">
                           {assignment.currency ?? 'Любая'}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-slate-300">
+                          {assignment.validFrom} — {assignment.validTo}
                         </TableCell>
                         <TableCell className="text-white">
                           <div className="inline-flex items-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-sm">
@@ -410,7 +414,11 @@ export function RuleSetsPage() {
             updateAssignmentMutation.mutate(
               {
                 assignmentId: editingAssignment.id,
-                payload: { ruleSetId: values.ruleSetId },
+                payload: {
+                  ruleSetId: values.ruleSetId,
+                  validFrom: values.validFrom,
+                  validTo: values.validTo,
+                },
               },
               {
                 onSuccess: () => {

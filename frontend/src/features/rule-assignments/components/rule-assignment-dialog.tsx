@@ -23,6 +23,7 @@ import type { RuleAssignment } from '@/entities/rule-assignment/types'
 import type { RuleSet } from '@/entities/rule-set/types'
 
 const ANY_EXCHANGE = '__any_exchange__'
+const DD_MM_RE = /^(\d{1,2})\.(\d{1,2})$/
 
 function describeScope(assignment: RuleAssignment | null) {
   if (!assignment) return null
@@ -30,6 +31,16 @@ function describeScope(assignment: RuleAssignment | null) {
   const exchange = assignment.exchangeId ?? 'Любая биржа'
   const currency = assignment.currency ?? 'Любая валюта'
   return `${exchange} / ${currency}`
+}
+
+function isValidDdMm(value: string) {
+  const match = value.trim().match(DD_MM_RE)
+  if (!match) return false
+  const day = Number(match[1])
+  const month = Number(match[2])
+  if (month < 1 || month > 12) return false
+  const daysInMonth = new Date(2000, month, 0).getDate()
+  return day >= 1 && day <= daysInMonth
 }
 
 export function RuleAssignmentDialog({
@@ -53,11 +64,15 @@ export function RuleAssignmentDialog({
     exchangeId: string | null
     currency: string | null
     ruleSetId: number
+    validFrom: string
+    validTo: string
   }) => void
 }) {
   const [exchangeValue, setExchangeValue] = useState(ANY_EXCHANGE)
   const [currencyValue, setCurrencyValue] = useState('')
   const [ruleSetValue, setRuleSetValue] = useState('')
+  const [validFromValue, setValidFromValue] = useState('01.01')
+  const [validToValue, setValidToValue] = useState('31.12')
 
   useEffect(() => {
     if (!open) return
@@ -65,9 +80,12 @@ export function RuleAssignmentDialog({
     setExchangeValue(initialAssignment?.exchangeId ?? ANY_EXCHANGE)
     setCurrencyValue(initialAssignment?.currency ?? '')
     setRuleSetValue(String(initialAssignment?.ruleSetId ?? defaultRuleSetId ?? ''))
+    setValidFromValue(initialAssignment?.validFrom ?? '01.01')
+    setValidToValue(initialAssignment?.validTo ?? '31.12')
   }, [defaultRuleSetId, initialAssignment, open])
 
   const isEditing = initialAssignment != null
+  const datesValid = isValidDdMm(validFromValue) && isValidDdMm(validToValue)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -78,8 +96,8 @@ export function RuleAssignmentDialog({
           </DialogTitle>
           <DialogDescription className="text-slate-400">
             {isEditing
-              ? 'Сейчас backend позволяет менять у назначения набор правил, а область действия остаётся неизменной.'
-              : 'Назначьте набор правил на конкретную биржу, валюту или на более общий scope.'}
+              ? 'Можно изменить набор правил и период действия. Биржа и валюта остаются неизменными.'
+              : 'Назначьте набор правил на биржу и валюту. Правило действует только в указанном периоде (ДД.ММ, каждый год).'}
           </DialogDescription>
         </DialogHeader>
 
@@ -123,6 +141,34 @@ export function RuleAssignmentDialog({
             </>
           )}
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="valid-from">Действует с (ДД.ММ)</Label>
+              <Input
+                id="valid-from"
+                value={validFromValue}
+                onChange={(event) => setValidFromValue(event.target.value)}
+                placeholder="01.06"
+                className="h-11 border-white/10 bg-white/5"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="valid-to">Действует по (ДД.ММ)</Label>
+              <Input
+                id="valid-to"
+                value={validToValue}
+                onChange={(event) => setValidToValue(event.target.value)}
+                placeholder="31.08"
+                className="h-11 border-white/10 bg-white/5"
+              />
+            </div>
+          </div>
+          {!datesValid ? (
+            <p className="text-sm text-amber-300/90">
+              Укажите даты в формате ДД.ММ, например 15.11 или 01.03.
+            </p>
+          ) : null}
+
           <div className="space-y-2">
             <Label>Набор правил</Label>
             <Select value={ruleSetValue} onValueChange={setRuleSetValue}>
@@ -152,7 +198,7 @@ export function RuleAssignmentDialog({
           <Button
             type="button"
             className="bg-cyan-300 text-slate-950 hover:bg-cyan-200"
-            disabled={isPending || !ruleSetValue}
+            disabled={isPending || !ruleSetValue || !datesValid}
             onClick={() =>
               onSubmit({
                 exchangeId: isEditing
@@ -162,6 +208,8 @@ export function RuleAssignmentDialog({
                     : exchangeValue,
                 currency: isEditing ? initialAssignment.currency : currencyValue.trim() || null,
                 ruleSetId: Number(ruleSetValue),
+                validFrom: validFromValue.trim(),
+                validTo: validToValue.trim(),
               })
             }
           >

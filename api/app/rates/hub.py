@@ -1,9 +1,12 @@
 import asyncio
 import logging
+from datetime import datetime
 from typing import Any
 
 from fastapi import WebSocket
 from starlette.websockets import WebSocketDisconnect, WebSocketState
+
+from app.rates.ingest import normalize_emulator_payload, observed_as_date
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +18,7 @@ class ExchangeHub:
         self.exchange_id = exchange_id
         self.title = title
         self.latest_rates: dict[str, Any] = {}
+        self.observed_at: datetime | None = None
         self._clients: set[WebSocket] = set()
         self._lock = asyncio.Lock()
         self._upstream_lock = asyncio.Lock()
@@ -41,11 +45,23 @@ class ExchangeHub:
         async with self._lock:
             self._clients.discard(websocket)
 
-    async def ingest_and_broadcast(self, rates: dict[str, Any]) -> None:
-        self.latest_rates = rates
-        await self._broadcast(rates)
+    def client_payload(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {"rates": self.latest_rates}
+        if self.observed_at is not None:
+            payload["observed_at"] = self.observed_at.isoformat().replace("+00:00", "Z")
+        return payload
 
-    async def _broadcast(self, rates: dict[str, Any]) -> None:
+    def pricing_as_of(self):
+        return observed_as_date(self.observed_at)
+
+    async def ingest_and_broadcast(self, payload: dict[str, Any]) -> None:
+        rates, observed_at = normalize_emulator_payload(payload)
+        self.latest_rates = rates
+        if observed_at is not None:
+            self.observed_at = observed_at
+        await self._broadcast(self.client_payload())
+
+    async def _broadcast(self, message: dict[str, Any]) -> None:
         async with self._lock:
             clients = list(self._clients)
 
@@ -55,7 +71,7 @@ class ExchangeHub:
                 dead.append(client)
                 continue
             try:
-                await client.send_json(rates)
+                await client.send_json(message)
             except (WebSocketDisconnect, RuntimeError):
                 dead.append(client)
 

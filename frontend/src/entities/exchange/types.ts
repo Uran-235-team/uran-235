@@ -5,6 +5,11 @@ export type Exchange = {
 
 export type LiveRates = Record<string, number>
 
+export type LiveRatesMessage = {
+  rates: LiveRates
+  observedAt: string | null
+}
+
 export type PricedRate = {
   raw: string
   final: string

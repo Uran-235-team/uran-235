@@ -14,6 +14,7 @@ import {
   useUnlinkRuleMutation,
   useUpdateRuleSetMutation,
 } from '@/features/rule-sets/api/use-rule-sets'
+import { AutoGenerateRulesButton } from '@/features/rule-sets/components/auto-generate-rules-button'
 import { LinkRuleDialog } from '@/features/rule-sets/components/link-rule-dialog'
 import { RuleSetFormDialog } from '@/features/rule-sets/components/rule-set-form-dialog'
 import { useRulesQuery } from '@/features/rules/api/use-rules'
@@ -95,6 +96,7 @@ export function RuleSetsPage() {
           Управление правилами
           <ArrowRight className="size-4" />
         </Link>
+        <AutoGenerateRulesButton onSuccess={() => setSelectedId(null)} />
       </div>
 
       <section className="formulas-table" aria-label="Список правил">

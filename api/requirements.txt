@@ -11,3 +11,4 @@ sqlalchemy
 asyncpg
 alembic
 pydantic
+catboost

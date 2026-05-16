@@ -40,6 +40,9 @@ const detailMessageMap: Record<string, string> = {
   'high must be greater than low': 'Верхняя граница должна быть больше нижней.',
   'Invalid exchange_id': 'Некорректный идентификатор биржи.',
   'Exchange is not connected': 'Биржа сейчас недоступна.',
+  'Auto-rules model is unavailable': 'Модель ИИ сейчас недоступна.',
+  'Failed to generate auto-rules': 'Не удалось сгенерировать ИИ-правила.',
+  'Failed to persist auto-generated rules': 'Не удалось сохранить сгенерированные ИИ-правила.',
 }
 
 let refreshPromise: Promise<string | null> | null = null

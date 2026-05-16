@@ -4,9 +4,6 @@ import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 import { z } from 'zod'
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useLoginMutation } from '@/features/auth/api/use-auth'
 import { AuthShell } from '@/features/auth/components/auth-shell'
 import { loginSchema } from '@/features/auth/lib/schemas'
@@ -23,65 +20,51 @@ export function LoginForm() {
 
   return (
     <AuthShell
-      title="С возвращением"
-      description="Вход идет через backend auth API. Если API недоступен, форма покажет реальную ошибку, а не тихо замокает поведение."
+      title="Вход"
       footer={
-        <span>
-          Впервые здесь?{' '}
-          <Link className="text-cyan-300 transition hover:text-cyan-200" to="/register">
-            Создать аккаунт
+        <>
+          Нет аккаунта?
+          <Link className="text-link" to="/register">
+            Зарегистрироваться
           </Link>
-        </span>
+        </>
       }
     >
-      <form
-        className="space-y-5"
-        onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
-      >
-        <div className="space-y-2">
-          <Label htmlFor="username">Логин</Label>
-          <Input
-            id="username"
-            placeholder="admin"
-            className="h-12 border-white/10 bg-white/5"
-            {...form.register('username')}
-          />
-          {form.formState.errors.username ? (
-            <p className="text-xs text-rose-300">
-              {form.formState.errors.username.message}
-            </p>
-          ) : null}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Пароль</Label>
-          <Input
-            id="password"
-            type="password"
-            placeholder="••••••••"
-            className="h-12 border-white/10 bg-white/5"
-            {...form.register('password')}
-          />
-          {form.formState.errors.password ? (
-            <p className="text-xs text-rose-300">
-              {form.formState.errors.password.message}
-            </p>
-          ) : null}
-        </div>
-        <Button
-          type="submit"
-          size="lg"
-          className="h-12 w-full rounded-2xl bg-cyan-300 text-slate-950 hover:bg-cyan-200"
-          disabled={mutation.isPending}
-        >
-          {mutation.isPending ? (
-            <>
-              <LoaderCircle className="animate-spin" />
-              Входим
-            </>
-          ) : (
-            'Войти в dashboard'
-          )}
-        </Button>
+      <form onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
+        <label className="field">
+          <span>Логин</span>
+          <input autoComplete="username" {...form.register('username')} />
+        </label>
+        {form.formState.errors.username ? (
+          <p className="mb-4 text-xs text-rose-300">{form.formState.errors.username.message}</p>
+        ) : null}
+
+        <label className="field">
+          <span>Пароль</span>
+          <input type="password" autoComplete="current-password" {...form.register('password')} />
+        </label>
+        {form.formState.errors.password ? (
+          <p className="mb-4 text-xs text-rose-300">{form.formState.errors.password.message}</p>
+        ) : null}
+
+        <button className="primary-action btn-slice magnetic" type="submit" disabled={mutation.isPending}>
+          <span className="top" aria-hidden="true">
+            <span className="auth-label">
+              {mutation.isPending ? 'Входим' : 'Войти'}
+            </span>
+          </span>
+          <span className="bottom" aria-hidden="true">
+            <span className="auth-label">
+              {mutation.isPending ? 'Входим' : 'Войти'}
+            </span>
+          </span>
+        </button>
+        {mutation.isPending ? (
+          <div className="mt-3 flex items-center gap-2 text-sm text-slate-300">
+            <LoaderCircle className="size-4 animate-spin" />
+            Подключаем сессию
+          </div>
+        ) : null}
       </form>
     </AuthShell>
   )

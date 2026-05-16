@@ -25,13 +25,13 @@ export function DashboardHero({
       tone: 'from-cyan-400/20 to-cyan-400/0',
     },
     {
-      label: 'Правила',
+      label: 'Условия',
       value: rulesCount.toString(),
       icon: ShieldCheck,
       tone: 'from-blue-400/20 to-blue-400/0',
     },
     {
-      label: 'Наборы правил',
+      label: 'Правила',
       value: ruleSetsCount.toString(),
       icon: Activity,
       tone: 'from-emerald-400/20 to-emerald-400/0',
@@ -48,14 +48,15 @@ export function DashboardHero({
       >
         <div className="space-y-5">
           <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-cyan-200">
-            Центр управления uran-235
+            Главный экран
           </div>
           <div className="space-y-3">
             <h1 className="font-heading max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-5xl">
-              Live-курсы валют и ваши торговые правила в одном dashboard.
+              Live-курсы и правила торговли в одной операторской панели.
             </h1>
             <p className="max-w-2xl text-sm leading-7 text-slate-400 sm:text-base">
-              Биржи подключаются через сервис emulator по WebSocket. Правила и их наборы редактируются в соответствующих разделах.
+              Биржи подключаются через emulator по WebSocket. Здесь можно выбрать нужную биржу,
+              увидеть входящие валюты и сверить, как к ним применяется правило.
             </p>
           </div>
         </div>

@@ -82,10 +82,11 @@ export function RuleFormDialog({
       <DialogContent className="border-white/10 bg-slate-950/95 text-white backdrop-blur-2xl">
         <DialogHeader>
           <DialogTitle className="font-heading text-2xl">
-            {initialRule ? 'Редактирование правила' : 'Создание правила'}
+            {initialRule ? 'Редактирование условия' : 'Создание условия'}
           </DialogTitle>
           <DialogDescription className="text-slate-400">
-            Правило — это интервал цены [low, high] и дополнительный параметр extra. Связь с наборами правил настраивается отдельно.
+            Условие описывает диапазон цены и процент наценки. Затем эти условия включаются в
+            правила на отдельной странице.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -112,7 +113,7 @@ export function RuleFormDialog({
           </div>
           <div className="grid gap-5 sm:grid-cols-3">
             <div className="space-y-2">
-              <Label htmlFor="rule-extra">Extra</Label>
+              <Label htmlFor="rule-extra">Наценка, %</Label>
               <Input
                 id="rule-extra"
                 type="number"
@@ -126,7 +127,7 @@ export function RuleFormDialog({
               ) : null}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="rule-low">Low</Label>
+              <Label htmlFor="rule-low">От</Label>
               <Input
                 id="rule-low"
                 inputMode="decimal"
@@ -139,7 +140,7 @@ export function RuleFormDialog({
               ) : null}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="rule-high">High</Label>
+              <Label htmlFor="rule-high">До</Label>
               <Input
                 id="rule-high"
                 inputMode="decimal"

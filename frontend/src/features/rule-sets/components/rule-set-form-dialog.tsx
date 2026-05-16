@@ -48,7 +48,7 @@ export function RuleSetFormDialog({
       <DialogContent className="border-white/10 bg-slate-950/95 text-white backdrop-blur-2xl">
         <DialogHeader>
           <DialogTitle className="font-heading text-2xl">
-            {initial ? 'Переименовать набор' : 'Создать набор правил'}
+            {initial ? 'Переименовать правило' : 'Создать правило'}
           </DialogTitle>
         </DialogHeader>
         <form

@@ -26,66 +26,73 @@ export function RulesTable({
   onDelete: (ruleId: number) => void
 }) {
   return (
-    <Card className="rounded-[2rem] border-white/10 bg-slate-950/80 shadow-[0_20px_70px_rgba(2,6,23,0.55)] backdrop-blur-2xl">
+    <Card className="uran-panel border-[rgba(186,255,225,0.22)] shadow-[0_24px_70px_rgba(0,0,0,0.25)]">
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Правила</p>
-          <CardTitle className="font-heading text-2xl text-white">
-            Интервалы цен и параметры
+          <p className="uran-kicker">Условия</p>
+          <CardTitle className="font-heading text-[1.8rem] font-medium uppercase tracking-[0.08em] text-white">
+            Список условий
           </CardTitle>
         </div>
         <Button
-          className="h-11 rounded-2xl bg-cyan-300 text-slate-950 hover:bg-cyan-200"
+          variant="ghost"
+          className="h-11 rounded-[0.9rem] border border-[rgba(238,255,255,0.78)] bg-[rgba(10,24,29,0.32)] px-4 text-[#f7ffff] hover:translate-x-1 hover:bg-[#203638] hover:text-[#7df4ef]"
           onClick={onCreate}
         >
           <Plus className="size-4" />
-          Создать правило
+          Создать условие
         </Button>
       </CardHeader>
       <CardContent>
         {rules.length === 0 ? (
           <EmptyState
-            title="Правил пока нет"
-            description="Создайте первое правило — интервал цены [low, high] и параметр extra."
+            title="Условий пока нет"
+            description="Создайте первое условие: диапазон цены и процент наценки."
             action={
               <Button
-                className="rounded-2xl bg-cyan-300 text-slate-950 hover:bg-cyan-200"
+                variant="ghost"
+                className="h-11 rounded-[0.9rem] border border-[rgba(238,255,255,0.78)] bg-[rgba(10,24,29,0.32)] px-4 text-[#f7ffff] hover:translate-x-1 hover:bg-[#203638] hover:text-[#7df4ef]"
                 onClick={onCreate}
               >
                 <Plus className="size-4" />
-                Создать правило
+                Создать условие
               </Button>
             }
           />
         ) : (
-          <div className="overflow-hidden rounded-[1.5rem] border border-white/10">
+          <div className="overflow-hidden rounded-[0.9rem] border border-[rgba(209,255,226,0.12)]">
             <Table>
-              <TableHeader className="bg-white/5">
-                <TableRow className="border-white/10 hover:bg-white/5">
-                  <TableHead className="text-slate-400">Название</TableHead>
-                  <TableHead className="text-slate-400">Extra</TableHead>
-                  <TableHead className="text-slate-400">Low</TableHead>
-                  <TableHead className="text-slate-400">High</TableHead>
-                  <TableHead className="text-right text-slate-400">Действия</TableHead>
+              <TableHeader className="bg-[linear-gradient(90deg,rgba(116,239,159,0.12),rgba(116,239,159,0.03))]">
+                <TableRow className="border-[rgba(209,255,226,0.12)] hover:bg-transparent">
+                  <TableHead className="h-15 text-white">Название</TableHead>
+                  <TableHead className="text-white">Наценка</TableHead>
+                  <TableHead className="text-white">От</TableHead>
+                  <TableHead className="text-white">До</TableHead>
+                  <TableHead className="text-right text-white">Действия</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rules.map((rule) => (
-                  <TableRow key={rule.id} className="border-white/8 hover:bg-white/5">
+                  <TableRow
+                    key={rule.id}
+                    className="border-[rgba(209,255,226,0.1)] hover:bg-[rgba(125,242,154,0.055)]"
+                  >
                     <TableCell>
-                      <p className="font-heading text-base font-semibold text-white">
-                        {rule.title}
-                      </p>
+                      <p className="font-heading text-base font-medium text-white">{rule.title}</p>
                     </TableCell>
-                    <TableCell className="text-slate-300">{rule.extra}</TableCell>
-                    <TableCell className="text-slate-300">{formatDecimal(rule.low)}</TableCell>
-                    <TableCell className="text-slate-300">{formatDecimal(rule.high)}</TableCell>
+                    <TableCell className="font-mono text-slate-300">{rule.extra}%</TableCell>
+                    <TableCell className="font-mono text-slate-300">
+                      {formatDecimal(rule.low)}
+                    </TableCell>
+                    <TableCell className="font-mono text-slate-300">
+                      {formatDecimal(rule.high)}
+                    </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-2">
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          className="rounded-xl border border-white/10 bg-white/5"
+                          className="rounded-full border border-white/90 bg-[#f7fbfc] text-slate-800 hover:bg-white"
                           onClick={() => onEdit(rule)}
                         >
                           <PencilLine className="size-4" />
@@ -93,7 +100,7 @@ export function RulesTable({
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          className="rounded-xl border border-white/10 bg-white/5"
+                          className="rounded-full border border-white/90 bg-[#f7fbfc] text-rose-500 hover:bg-white"
                           onClick={() => onDelete(rule.id)}
                         >
                           <Trash2 className="size-4" />

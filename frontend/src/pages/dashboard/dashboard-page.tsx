@@ -1,66 +1,48 @@
-import { useEffect, useState } from 'react'
-
-import { motion } from 'framer-motion'
+import { useState } from 'react'
 
 import { useExchangesQuery } from '@/features/exchanges/api/use-exchanges'
 import { useLiveRates } from '@/features/exchanges/api/use-live-rates'
 import { usePricedRateCharts } from '@/features/exchanges/api/use-priced-rate-charts'
-import { useRuleSetsQuery } from '@/features/rule-sets/api/use-rule-sets'
-import { useRulesQuery } from '@/features/rules/api/use-rules'
-import { DashboardHero } from '@/widgets/dashboard/dashboard-hero'
-import { ExchangesCard } from '@/widgets/dashboard/exchanges-card'
 import { RatesCard } from '@/widgets/dashboard/rates-card'
 
 export function DashboardPage() {
   const exchangesQuery = useExchangesQuery()
-  const rulesQuery = useRulesQuery()
-  const ruleSetsQuery = useRuleSetsQuery()
   const [selectedExchangeId, setSelectedExchangeId] = useState<string | null>(null)
+  const [visibleChartCodes, setVisibleChartCodes] = useState<string[]>([])
 
-  useEffect(() => {
-    if (!selectedExchangeId && exchangesQuery.data?.length) {
-      setSelectedExchangeId(exchangesQuery.data[0].id)
-    }
-  }, [exchangesQuery.data, selectedExchangeId])
+  const effectiveSelectedExchangeId =
+    selectedExchangeId && exchangesQuery.data?.some((exchange) => exchange.id === selectedExchangeId)
+      ? selectedExchangeId
+      : exchangesQuery.data?.[0]?.id ?? null
 
   const selectedExchange =
-    exchangesQuery.data?.find((exchange) => exchange.id === selectedExchangeId) ?? null
+    exchangesQuery.data?.find((exchange) => exchange.id === effectiveSelectedExchangeId) ?? null
 
-  const { rates, status, messageCount } = useLiveRates(selectedExchangeId)
-  const { series, pricedRates, isSyncing, syncError, lastUpdatedAt, hasBufferedUpdates } =
-    usePricedRateCharts(selectedExchangeId, rates, messageCount)
+  const { rates, status, messageCount } = useLiveRates(effectiveSelectedExchangeId)
+  const { series, pricedRates } = usePricedRateCharts(
+    effectiveSelectedExchangeId,
+    rates,
+    messageCount,
+    visibleChartCodes,
+  )
 
   return (
-    <div className="space-y-8">
-      <DashboardHero
-        exchangesCount={exchangesQuery.data?.length ?? 0}
-        rulesCount={rulesQuery.data?.length ?? 0}
-        ruleSetsCount={ruleSetsQuery.data?.length ?? 0}
+    <div className="dashboard-canvas">
+      <RatesCard
+        exchanges={exchangesQuery.data ?? []}
+        exchangesLoading={exchangesQuery.isLoading}
+        onOpenExchangeMenu={() => {
+          void exchangesQuery.refetch()
+        }}
+        selectedExchangeId={effectiveSelectedExchangeId}
+        onSelectExchange={setSelectedExchangeId}
+        exchangeTitle={selectedExchange?.title ?? null}
+        rates={rates}
+        status={status}
+        series={series}
+        pricedRates={pricedRates}
+        onVisibleChartCodesChange={setVisibleChartCodes}
       />
-      <motion.section
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid gap-6 xl:grid-cols-[0.9fr_1.7fr]"
-      >
-        <ExchangesCard
-          exchanges={exchangesQuery.data}
-          isLoading={exchangesQuery.isLoading}
-          selectedExchangeId={selectedExchangeId}
-          onSelect={setSelectedExchangeId}
-        />
-        <RatesCard
-          exchangeTitle={selectedExchange?.title ?? null}
-          rates={rates}
-          status={status}
-          series={series}
-          pricedRates={pricedRates}
-          isSyncing={isSyncing}
-          syncError={syncError}
-          lastUpdatedAt={lastUpdatedAt}
-          hasBufferedUpdates={hasBufferedUpdates}
-        />
-      </motion.section>
     </div>
   )
 }

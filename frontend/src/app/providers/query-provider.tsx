@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 
 import {
@@ -7,8 +7,15 @@ import {
   QueryClient,
   QueryClientProvider,
 } from '@tanstack/react-query'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { toast } from 'sonner'
+
+const ReactQueryDevtools = import.meta.env.DEV
+  ? lazy(() =>
+      import('@tanstack/react-query-devtools').then((module) => ({
+        default: module.ReactQueryDevtools,
+      })),
+    )
+  : null
 
 function createQueryClient() {
   return new QueryClient({
@@ -24,15 +31,13 @@ function createQueryClient() {
     },
     queryCache: new QueryCache({
       onError: (error) => {
-        const message =
-          error instanceof Error ? error.message : 'Unable to load data.'
+        const message = error instanceof Error ? error.message : 'Не удалось загрузить данные.'
         toast.error(message)
       },
     }),
     mutationCache: new MutationCache({
       onError: (error) => {
-        const message =
-          error instanceof Error ? error.message : 'Unable to complete action.'
+        const message = error instanceof Error ? error.message : 'Не удалось выполнить действие.'
         toast.error(message)
       },
     }),
@@ -45,7 +50,11 @@ export function QueryProvider({ children }: PropsWithChildren) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
+      {ReactQueryDevtools ? (
+        <Suspense fallback={null}>
+          <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
+        </Suspense>
+      ) : null}
     </QueryClientProvider>
   )
 }

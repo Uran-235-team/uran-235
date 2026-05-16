@@ -1,28 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 
-import { motion } from 'framer-motion'
-import { PencilLine, Plus, Tags, Trash2, Unlink } from 'lucide-react'
+import { ArrowRight, PencilLine, Plus, Trash2, Unlink } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import type { RuleAssignment } from '@/entities/rule-assignment/types'
 import type { RuleSet } from '@/entities/rule-set/types'
-import { useExchangesQuery } from '@/features/exchanges/api/use-exchanges'
-import {
-  useCreateRuleAssignmentMutation,
-  useDeleteRuleAssignmentMutation,
-  useRuleAssignmentsQuery,
-  useUpdateRuleAssignmentMutation,
-} from '@/features/rule-assignments/api/use-rule-assignments'
-import { RuleAssignmentDialog } from '@/features/rule-assignments/components/rule-assignment-dialog'
 import {
   useCreateRuleSetMutation,
   useDeleteRuleSetMutation,
@@ -35,43 +17,47 @@ import {
 import { LinkRuleDialog } from '@/features/rule-sets/components/link-rule-dialog'
 import { RuleSetFormDialog } from '@/features/rule-sets/components/rule-set-form-dialog'
 import { useRulesQuery } from '@/features/rules/api/use-rules'
-import { cn } from '@/lib/utils'
 import { formatDecimal } from '@/shared/lib/format'
-import { EmptyState } from '@/shared/ui/empty-state'
 
-function describeAssignmentScope(assignment: RuleAssignment) {
-  const exchange = assignment.exchangeId ?? 'Любая биржа'
-  const currency = assignment.currency ?? 'Любая валюта'
-  return `${exchange} / ${currency}`
+function ActionIconButton({
+  tone,
+  onClick,
+  children,
+  label,
+}: {
+  tone: 'edit' | 'trash'
+  onClick: () => void
+  children: ReactNode
+  label: string
+}) {
+  const className = tone === 'trash' ? 'trash-button' : 'edit-button'
+
+  return (
+    <button className={`icon-button ${className}`} type="button" onClick={onClick} aria-label={label}>
+      <span className="icon-art">{children}</span>
+    </button>
+  )
 }
 
 export function RuleSetsPage() {
   const ruleSetsQuery = useRuleSetsQuery()
   const rulesQuery = useRulesQuery()
-  const exchangesQuery = useExchangesQuery()
-  const assignmentsQuery = useRuleAssignmentsQuery()
-
   const createMutation = useCreateRuleSetMutation()
   const updateMutation = useUpdateRuleSetMutation()
   const deleteMutation = useDeleteRuleSetMutation()
-  const createAssignmentMutation = useCreateRuleAssignmentMutation()
-  const updateAssignmentMutation = useUpdateRuleAssignmentMutation()
-  const deleteAssignmentMutation = useDeleteRuleAssignmentMutation()
 
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<RuleSet | null>(null)
   const [linkOpen, setLinkOpen] = useState(false)
-  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
-  const [editingAssignment, setEditingAssignment] = useState<RuleAssignment | null>(null)
 
-  useEffect(() => {
-    if (selectedId == null && ruleSetsQuery.data?.length) {
-      setSelectedId(ruleSetsQuery.data[0].id)
-    }
-  }, [ruleSetsQuery.data, selectedId])
+  const effectiveSelectedId =
+    selectedId && ruleSetsQuery.data?.some((set) => set.id === selectedId)
+      ? selectedId
+      : ruleSetsQuery.data?.[0]?.id ?? null
 
-  const selectedRuleSet = ruleSetsQuery.data?.find((set) => set.id === selectedId) ?? null
+  const selectedRuleSet =
+    ruleSetsQuery.data?.find((set) => set.id === effectiveSelectedId) ?? null
   const setRulesQuery = useRuleSetRulesQuery(selectedRuleSet?.id ?? null)
   const linkMutation = useLinkRuleMutation(selectedRuleSet?.id ?? 0)
   const unlinkMutation = useUnlinkRuleMutation(selectedRuleSet?.id ?? 0)
@@ -84,283 +70,184 @@ export function RuleSetsPage() {
     () => (rulesQuery.data ?? []).filter((rule) => !linkedIds.has(rule.id)),
     [rulesQuery.data, linkedIds],
   )
-  const ruleSetTitles = useMemo(
-    () =>
-      new Map((ruleSetsQuery.data ?? []).map((ruleSet) => [ruleSet.id, ruleSet.title] as const)),
-    [ruleSetsQuery.data],
-  )
-  const assignments = useMemo(
-    () =>
-      [...(assignmentsQuery.data ?? [])].sort((a, b) => {
-        const byExchange = (a.exchangeId ?? '').localeCompare(b.exchangeId ?? '')
-        if (byExchange !== 0) return byExchange
-
-        const byCurrency = (a.currency ?? '').localeCompare(b.currency ?? '')
-        if (byCurrency !== 0) return byCurrency
-
-        return a.id - b.id
-      }),
-    [assignmentsQuery.data],
-  )
 
   return (
-    <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-2"
-      >
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Наборы правил</p>
-        <h1 className="font-heading text-4xl font-semibold tracking-tight text-white">
-          Сгруппируйте правила в наборы
-        </h1>
-        <p className="max-w-3xl text-sm leading-7 text-slate-400 sm:text-base">
-          Наборы определяют, какие правила применяются вместе, а назначения ниже связывают их с
-          биржами и валютами. Backend следит, чтобы интервалы цен внутри одного набора не
-          пересекались.
-        </p>
-      </motion.div>
+    <div className="page-wrap">
+      <h1 className="page-title">Правила</h1>
+      <p className="page-subtitle">
+        Здесь условия объединяются в правила. Состав выбранного правила редактируется в нижней
+        таблице, а назначение правил на биржи и валюты вынесено в отдельную страницу.
+      </p>
 
-      <section className="grid gap-6 xl:grid-cols-[0.9fr_1.7fr]">
-        <Card className="rounded-[2rem] border-white/10 bg-slate-950/80 backdrop-blur-2xl">
-          <CardHeader className="flex flex-row items-center justify-between gap-2">
-            <CardTitle className="font-heading text-2xl text-white">Список</CardTitle>
-            <Button
-              className="rounded-2xl bg-cyan-300 text-slate-950 hover:bg-cyan-200"
-              onClick={() => {
-                setEditing(null)
-                setFormOpen(true)
-              }}
+      <div className="mb-4 flex flex-wrap gap-3">
+        <button
+          className="formula-button magnetic"
+          type="button"
+          onClick={() => {
+            setEditing(null)
+            setFormOpen(true)
+          }}
+        >
+          <Plus className="size-4" />
+          Создать правило
+        </button>
+        <Link className="formula-button magnetic" to="/rule-assignments">
+          Управление правилами
+          <ArrowRight className="size-4" />
+        </Link>
+      </div>
+
+      <section className="formulas-table" aria-label="Список правил">
+        <div
+          className="formulas-head"
+          style={{ gridTemplateColumns: '1fr 170px 190px' }}
+        >
+          <span>Название</span>
+          <span className="formula-action">ID</span>
+          <span className="formula-action">Действия</span>
+        </div>
+        <div className="formulas-body">
+          {(ruleSetsQuery.data ?? []).length === 0 ? (
+            <div
+              className="formula-row"
+              style={{ gridTemplateColumns: '1fr 170px 190px' }}
             >
-              <Plus className="size-4" />
-              Создать
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {ruleSetsQuery.data?.length === 0 ? (
-              <EmptyState
-                title="Наборов нет"
-                description="Создайте первый набор, чтобы группировать правила."
-              />
-            ) : (
-              <ul className="space-y-2">
-                {ruleSetsQuery.data?.map((set) => (
-                  <li key={set.id}>
-                    <div
-                      className={cn(
-                        'flex items-center gap-2 rounded-2xl border px-3 py-2 transition',
-                        selectedId === set.id
-                          ? 'border-cyan-300/40 bg-cyan-300/10'
-                          : 'border-white/10 bg-white/5 hover:bg-white/10',
-                      )}
-                    >
-                      <button
-                        type="button"
-                        className="flex-1 text-left"
-                        onClick={() => setSelectedId(set.id)}
-                      >
-                        <p className="text-sm font-semibold text-white">{set.title}</p>
-                        <p className="font-mono text-xs text-slate-400">#{set.id}</p>
-                      </button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="rounded-xl border border-white/10 bg-white/5"
-                        onClick={() => {
-                          setEditing(set)
-                          setFormOpen(true)
-                        }}
-                      >
-                        <PencilLine className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="rounded-xl border border-white/10 bg-white/5"
-                        onClick={() => {
-                          deleteMutation.mutate(set.id, {
-                            onSuccess: () => {
-                              if (selectedId === set.id) setSelectedId(null)
-                            },
-                          })
-                        }}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-[2rem] border-white/10 bg-slate-950/80 backdrop-blur-2xl">
-          <CardHeader className="flex flex-row items-center justify-between gap-2">
-            <div className="space-y-1">
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Правила в наборе</p>
-              <CardTitle className="font-heading text-2xl text-white">
-                {selectedRuleSet?.title ?? 'Выберите набор'}
-              </CardTitle>
+              <span className="formula-name">Правил пока нет</span>
+              <span className="formula-action">—</span>
+              <span className="formula-action">—</span>
             </div>
-            <Button
-              className="rounded-2xl bg-cyan-300 text-slate-950 hover:bg-cyan-200"
-              disabled={!selectedRuleSet}
-              onClick={() => setLinkOpen(true)}
-            >
-              <Plus className="size-4" />
-              Привязать правило
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {!selectedRuleSet ? (
-              <EmptyState
-                title="Набор не выбран"
-                description="Выберите набор слева, чтобы увидеть привязанные правила."
-              />
-            ) : setRulesQuery.data?.length === 0 ? (
-              <EmptyState
-                title="Правил в наборе пока нет"
-                description="Привяжите существующее правило к этому набору."
-              />
-            ) : (
-              <div className="overflow-hidden rounded-[1.5rem] border border-white/10">
-                <Table>
-                  <TableHeader className="bg-white/5">
-                    <TableRow className="border-white/10 hover:bg-white/5">
-                      <TableHead className="text-slate-400">Название</TableHead>
-                      <TableHead className="text-slate-400">Extra</TableHead>
-                      <TableHead className="text-slate-400">Low</TableHead>
-                      <TableHead className="text-slate-400">High</TableHead>
-                      <TableHead className="text-right text-slate-400">Действия</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {setRulesQuery.data?.map((rule) => (
-                      <TableRow key={rule.id} className="border-white/8 hover:bg-white/5">
-                        <TableCell className="text-white">{rule.title}</TableCell>
-                        <TableCell className="text-slate-300">{rule.extra}</TableCell>
-                        <TableCell className="text-slate-300">{formatDecimal(rule.low)}</TableCell>
-                        <TableCell className="text-slate-300">{formatDecimal(rule.high)}</TableCell>
-                        <TableCell>
-                          <div className="flex justify-end">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="rounded-xl border border-white/10 bg-white/5"
-                              onClick={() => unlinkMutation.mutate(rule.id)}
-                            >
-                              <Unlink className="size-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+          ) : (
+            (ruleSetsQuery.data ?? []).map((ruleSet) => (
+              <div
+                key={ruleSet.id}
+                className="formula-row"
+                style={{
+                  gridTemplateColumns: '1fr 170px 190px',
+                  background:
+                    effectiveSelectedId === ruleSet.id
+                      ? 'rgba(125, 242, 154, 0.09)'
+                      : undefined,
+                }}
+              >
+                <button
+                  type="button"
+                  className="formula-name cursor-pointer border-0 bg-transparent text-left"
+                  onClick={() => setSelectedId(ruleSet.id)}
+                >
+                  {ruleSet.title}
+                </button>
+                <span className="formula-action">#{ruleSet.id}</span>
+                <span className="formula-action gap-3">
+                  <ActionIconButton
+                    tone="edit"
+                    label="Редактировать правило"
+                    onClick={() => {
+                      setEditing(ruleSet)
+                      setFormOpen(true)
+                    }}
+                  >
+                    <PencilLine className="size-5" />
+                  </ActionIconButton>
+                  <ActionIconButton
+                    tone="trash"
+                    label="Удалить правило"
+                    onClick={() =>
+                      deleteMutation.mutate(ruleSet.id, {
+                        onSuccess: () => {
+                          if (effectiveSelectedId === ruleSet.id) setSelectedId(null)
+                        },
+                      })
+                    }
+                  >
+                    <Trash2 className="size-5" />
+                  </ActionIconButton>
+                </span>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            ))
+          )}
+        </div>
       </section>
 
-      <motion.section
-        initial={{ opacity: 0, y: 18 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-      >
-        <Card className="rounded-[2rem] border-white/10 bg-slate-950/80 backdrop-blur-2xl">
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Назначения</p>
-              <CardTitle className="font-heading text-2xl text-white">
-                Связка наборов с биржами и валютами
-              </CardTitle>
-              <p className="max-w-3xl text-sm text-slate-400">
-                Можно создать точечное назначение для пары биржа/валюта или оставить одно из
-                полей пустым, чтобы правило работало шире.
-              </p>
-            </div>
-            <Button
-              className="rounded-2xl bg-cyan-300 text-slate-950 hover:bg-cyan-200"
-              disabled={!ruleSetsQuery.data?.length}
-              onClick={() => {
-                setEditingAssignment(null)
-                setAssignmentDialogOpen(true)
-              }}
+      <div className="mt-10 mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="page-title mb-2 text-[28px]">
+            {selectedRuleSet ? `Состав: ${selectedRuleSet.title}` : 'Состав правила'}
+          </h2>
+          <p className="page-subtitle mb-0">
+            {selectedRuleSet
+              ? 'Добавляйте и удаляйте условия внутри выбранного правила.'
+              : 'Выберите правило в верхней таблице, чтобы увидеть его состав.'}
+          </p>
+        </div>
+        <button
+          className="formula-button magnetic"
+          type="button"
+          disabled={!selectedRuleSet}
+          onClick={() => setLinkOpen(true)}
+        >
+          <Plus className="size-4" />
+          Добавить условие
+        </button>
+      </div>
+
+      <section className="formulas-table" aria-label="Состав правила">
+        <div
+          className="formulas-head"
+          style={{ gridTemplateColumns: '1fr 220px 150px 190px' }}
+        >
+          <span>Условие</span>
+          <span className="formula-action">Диапазон</span>
+          <span className="formula-action">Наценка</span>
+          <span className="formula-action">Действия</span>
+        </div>
+        <div className="formulas-body">
+          {!selectedRuleSet ? (
+            <div
+              className="formula-row"
+              style={{ gridTemplateColumns: '1fr 220px 150px 190px' }}
             >
-              <Plus className="size-4" />
-              Создать назначение
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {assignments.length === 0 ? (
-              <EmptyState
-                title="Назначений пока нет"
-                description="Создайте первое назначение, чтобы backend начал подбирать набор правил по бирже и валюте."
-              />
-            ) : (
-              <div className="overflow-hidden rounded-[1.5rem] border border-white/10">
-                <Table>
-                  <TableHeader className="bg-white/5">
-                    <TableRow className="border-white/10 hover:bg-white/5">
-                      <TableHead className="text-slate-400">Scope</TableHead>
-                      <TableHead className="text-slate-400">Биржа</TableHead>
-                      <TableHead className="text-slate-400">Валюта</TableHead>
-                      <TableHead className="text-slate-400">Набор правил</TableHead>
-                      <TableHead className="text-right text-slate-400">Действия</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {assignments.map((assignment) => (
-                      <TableRow key={assignment.id} className="border-white/8 hover:bg-white/5">
-                        <TableCell className="font-mono text-xs text-slate-300">
-                          {describeAssignmentScope(assignment)}
-                        </TableCell>
-                        <TableCell className="text-slate-300">
-                          {assignment.exchangeId ?? 'Любая'}
-                        </TableCell>
-                        <TableCell className="text-slate-300">
-                          {assignment.currency ?? 'Любая'}
-                        </TableCell>
-                        <TableCell className="text-white">
-                          <div className="inline-flex items-center gap-2 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-sm">
-                            <Tags className="size-4 text-cyan-200" />
-                            <span>{ruleSetTitles.get(assignment.ruleSetId) ?? `#${assignment.ruleSetId}`}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="rounded-xl border border-white/10 bg-white/5"
-                              onClick={() => {
-                                setEditingAssignment(assignment)
-                                setAssignmentDialogOpen(true)
-                              }}
-                            >
-                              <PencilLine className="size-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="rounded-xl border border-white/10 bg-white/5"
-                              onClick={() => deleteAssignmentMutation.mutate(assignment.id)}
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <span className="formula-name">Правило не выбрано</span>
+              <span className="formula-action">—</span>
+              <span className="formula-action">—</span>
+              <span className="formula-action">—</span>
+            </div>
+          ) : (setRulesQuery.data ?? []).length === 0 ? (
+            <div
+              className="formula-row"
+              style={{ gridTemplateColumns: '1fr 220px 150px 190px' }}
+            >
+              <span className="formula-name">Внутри правила пока нет условий</span>
+              <span className="formula-action">—</span>
+              <span className="formula-action">—</span>
+              <span className="formula-action">—</span>
+            </div>
+          ) : (
+            (setRulesQuery.data ?? []).map((rule) => (
+              <div
+                key={rule.id}
+                className="formula-row"
+                style={{ gridTemplateColumns: '1fr 220px 150px 190px' }}
+              >
+                <span className="formula-name">{rule.title}</span>
+                <span className="formula-action">
+                  {formatDecimal(rule.low)} - {formatDecimal(rule.high)}
+                </span>
+                <span className="formula-action">{rule.extra}%</span>
+                <span className="formula-action gap-3">
+                  <span className="text-sm text-[rgba(248,250,250,0.75)]">В составе</span>
+                  <ActionIconButton
+                    tone="trash"
+                    label="Убрать условие из правила"
+                    onClick={() => unlinkMutation.mutate(rule.id)}
+                  >
+                    <Unlink className="size-5" />
+                  </ActionIconButton>
+                </span>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </motion.section>
+            ))
+          )}
+        </div>
+      </section>
 
       <RuleSetFormDialog
         open={formOpen}
@@ -395,39 +282,6 @@ export function RuleSetsPage() {
             onSuccess: () => setLinkOpen(false),
           })
         }
-      />
-
-      <RuleAssignmentDialog
-        open={assignmentDialogOpen}
-        onOpenChange={setAssignmentDialogOpen}
-        initialAssignment={editingAssignment}
-        ruleSets={ruleSetsQuery.data ?? []}
-        exchanges={exchangesQuery.data ?? []}
-        defaultRuleSetId={selectedRuleSet?.id ?? ruleSetsQuery.data?.[0]?.id ?? null}
-        isPending={createAssignmentMutation.isPending || updateAssignmentMutation.isPending}
-        onSubmit={(values) => {
-          if (editingAssignment) {
-            updateAssignmentMutation.mutate(
-              {
-                assignmentId: editingAssignment.id,
-                payload: { ruleSetId: values.ruleSetId },
-              },
-              {
-                onSuccess: () => {
-                  setAssignmentDialogOpen(false)
-                  setEditingAssignment(null)
-                },
-              },
-            )
-            return
-          }
-
-          createAssignmentMutation.mutate(values, {
-            onSuccess: () => {
-              setAssignmentDialogOpen(false)
-            },
-          })
-        }}
       />
     </div>
   )

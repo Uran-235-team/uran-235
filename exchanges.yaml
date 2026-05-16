@@ -1,0 +1,7 @@
+exchanges:
+  - id: demo
+    title: Демо биржа
+  - id: moscow
+    title: Центробанк
+  - id: scammm
+    title: Биржа скам

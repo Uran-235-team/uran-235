@@ -1,13 +1,14 @@
 import asyncio
 import json
 import logging
+import re
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
-from app.config import ExchangeDefinition, settings
+from app.config import settings
 from app.dependencies import get_current_user
-from app.rates.hub import ExchangeHub, hub_manager
+from app.rates.hub import hub_manager
 from app.rates.schemas import ExchangePublic
 from app.security import AccessTokenError, verify_access_token
 from app.redis_client import redis_client
@@ -16,35 +17,24 @@ from db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
 
+router = APIRouter(tags=["Rates"])
 
-def _match_exchange_handshake(exchange_id: str | None, title: str | None) -> ExchangeDefinition | None:
-    if exchange_id is None or title is None:
-        return None
-    tid = exchange_id.strip()
-    ttitle = title.strip()
-    for ex in settings.exchanges:
-        if ex.id == tid and ex.title.strip() == ttitle:
-            return ex
-    return None
+_EXCHANGE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+_TITLE_MAX_LEN = 128
 
 
 @router.get("/exchanges", response_model=list[ExchangePublic])
 async def list_exchanges(current_user: User = Depends(get_current_user)):
     return [
-        ExchangePublic(
-            id=ex.id,
-            title=ex.title,
-            online=hub_manager.exchange_online(ex.id),
-        )
-        for ex in settings.exchanges
+        ExchangePublic(id=ex_id, title=title)
+        for ex_id, title in hub_manager.list_exchanges()
     ]
 
 
 @router.websocket("/ws/emulator")
 async def emulator_ingest_ws(websocket: WebSocket):
-    """Inbound connection from an emulator process (feeds one configured exchange)."""
     await websocket.accept()
-    hub: ExchangeHub | None = None
+    registered_id: str | None = None
     try:
         raw = await asyncio.wait_for(
             websocket.receive_text(),
@@ -55,9 +45,13 @@ async def emulator_ingest_ws(websocket: WebSocket):
             await websocket.close(code=1008, reason="Handshake must be a JSON object")
             return
 
-        ex = _match_exchange_handshake(hello.get("exchange_id"), hello.get("title"))
-        if ex is None:
-            await websocket.close(code=1008, reason="Unknown exchange or title mismatch")
+        exchange_id = (hello.get("exchange_id") or "").strip()
+        title = (hello.get("title") or "").strip()
+        if not _EXCHANGE_ID_RE.fullmatch(exchange_id):
+            await websocket.close(code=1008, reason="Invalid exchange_id")
+            return
+        if not (1 <= len(title) <= _TITLE_MAX_LEN):
+            await websocket.close(code=1008, reason="Invalid title")
             return
 
         if settings.emulator_ingest_secret:
@@ -65,13 +59,9 @@ async def emulator_ingest_ws(websocket: WebSocket):
                 await websocket.close(code=1008, reason="Invalid ingest secret")
                 return
 
-        hub = hub_manager.get_hub(ex.id)
-        if hub is None:
-            await websocket.close(code=1008, reason="Exchange not configured")
-            return
-
-        await hub.replace_upstream(websocket)
-        logger.info("Emulator connected for exchange %s (%s)", ex.id, ex.title)
+        hub = await hub_manager.register(exchange_id, title, websocket)
+        registered_id = exchange_id
+        logger.info("Emulator connected for exchange %s (%s)", exchange_id, title)
 
         while True:
             raw_msg = await websocket.receive_text()
@@ -97,8 +87,8 @@ async def emulator_ingest_ws(websocket: WebSocket):
         except Exception:
             pass
     finally:
-        if hub is not None:
-            await hub.clear_upstream_if_matches(websocket)
+        if registered_id is not None:
+            await hub_manager.unregister(registered_id, websocket)
 
 
 @router.websocket("/ws/rates")

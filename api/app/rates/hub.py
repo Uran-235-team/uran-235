@@ -5,39 +5,33 @@ from typing import Any
 from fastapi import WebSocket
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
-from app.config import ExchangeDefinition, settings
-
 logger = logging.getLogger(__name__)
 
 
 class ExchangeHub:
     """One exchange: downstream retail clients + rates pushed by emulator."""
 
-    def __init__(self, exchange_id: str) -> None:
+    def __init__(self, exchange_id: str, title: str) -> None:
         self.exchange_id = exchange_id
+        self.title = title
         self.latest_rates: dict[str, Any] = {}
         self._clients: set[WebSocket] = set()
         self._lock = asyncio.Lock()
         self._upstream_lock = asyncio.Lock()
         self._upstream: WebSocket | None = None
-        self.online: bool = False
 
     async def replace_upstream(self, websocket: WebSocket) -> None:
         async with self._upstream_lock:
             previous = self._upstream
             self._upstream = websocket
-            self.online = True
         if previous is not None and previous is not websocket:
             try:
                 await previous.close(code=4000, reason="Replaced by another emulator")
             except Exception:
                 pass
 
-    async def clear_upstream_if_matches(self, websocket: WebSocket) -> None:
-        async with self._upstream_lock:
-            if self._upstream == websocket:
-                self._upstream = None
-                self.online = False
+    def is_current_upstream(self, websocket: WebSocket) -> bool:
+        return self._upstream is websocket
 
     async def subscribe(self, websocket: WebSocket) -> None:
         async with self._lock:
@@ -70,27 +64,52 @@ class ExchangeHub:
                 for client in dead:
                     self._clients.discard(client)
 
+    async def shutdown(self) -> None:
+        async with self._upstream_lock:
+            self._upstream = None
+        async with self._lock:
+            clients = list(self._clients)
+            self._clients.clear()
+        for client in clients:
+            try:
+                await client.close(code=1011, reason="Exchange went offline")
+            except Exception:
+                pass
+
 
 class ExchangeHubManager:
-    def __init__(self, exchange_ids: list[str]) -> None:
-        self._hubs = {eid: ExchangeHub(eid) for eid in exchange_ids}
-
-    def known_exchange_ids(self) -> frozenset[str]:
-        return frozenset(self._hubs.keys())
+    def __init__(self) -> None:
+        self._hubs: dict[str, ExchangeHub] = {}
+        self._lock = asyncio.Lock()
 
     def get_hub(self, exchange_id: str) -> ExchangeHub | None:
         return self._hubs.get(exchange_id)
 
-    def exchange_online(self, exchange_id: str) -> bool:
-        hub = self._hubs.get(exchange_id)
-        return hub.online if hub is not None else False
+    def list_exchanges(self) -> list[tuple[str, str]]:
+        return [(hub.exchange_id, hub.title) for hub in self._hubs.values()]
+
+    async def register(
+        self, exchange_id: str, title: str, websocket: WebSocket
+    ) -> ExchangeHub:
+        async with self._lock:
+            hub = self._hubs.get(exchange_id)
+            if hub is None:
+                hub = ExchangeHub(exchange_id, title)
+                self._hubs[exchange_id] = hub
+            else:
+                hub.title = title
+        await hub.replace_upstream(websocket)
+        return hub
+
+    async def unregister(self, exchange_id: str, websocket: WebSocket) -> None:
+        async with self._lock:
+            hub = self._hubs.get(exchange_id)
+            if hub is None:
+                return
+            if not hub.is_current_upstream(websocket):
+                return
+            del self._hubs[exchange_id]
+        await hub.shutdown()
 
 
-def build_hub_manager_from_definitions(
-    definitions: tuple[ExchangeDefinition, ...],
-) -> ExchangeHubManager:
-    ids = [ex.id for ex in definitions]
-    return ExchangeHubManager(ids)
-
-
-hub_manager = build_hub_manager_from_definitions(settings.exchanges)
+hub_manager = ExchangeHubManager()

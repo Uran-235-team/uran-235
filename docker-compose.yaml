@@ -50,10 +50,8 @@ services:
       JWT_SECRET_KEY: super-secret-key-change-in-production
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 30
       JWT_REFRESH_TOKEN_EXPIRE_MINUTES: 10080
-      # Fixed list of exchanges (may be []). Each running emulator must match id+title here.
-      EXCHANGES_JSON: '[{"id":"demo","title":"Демо биржа"}]'
       # Optional shared secret; must match EMULATOR_INGEST_SECRET on each emulator if set.
-      EMULATOR_INGEST_SECRET: ""
+      EMULATOR_INGEST_SECRET: ${EMULATOR_INGEST_SECRET:-}
     ports:
       - "8000:8000"
 
@@ -67,10 +65,10 @@ services:
       api:
         condition: service_started
     environment:
-      EXCHANGE_ID: demo
-      EXCHANGE_TITLE: Демо биржа
       API_INGEST_WS_URL: ws://api:8000/api/v1/ws/emulator
-      EMULATOR_INGEST_SECRET: ""
+      EMULATOR_INGEST_SECRET: ${EMULATOR_INGEST_SECRET:-}
+    volumes:
+      - ./exchanges.yaml:/app/exchanges.yaml:ro
 
 volumes:
   postgres_data:
